@@ -1,0 +1,134 @@
+html_code = """
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Globe.gl - Clickable Nodes</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: Arial; }
+    #globeViz { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; }
+    #infoPanel {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      width: 250px;
+      display: none;
+    }
+    #infoPanel h3 { margin-top: 0; }
+    #infoPanel ul { padding-left: 20px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
+</head>
+<body>
+  <div id="globeViz"></div>
+  <div id="infoPanel">
+    <h3 id="playerName">Player</h3>
+    <p><b>Address:</b> <span id="address"></span></p>
+    <p><b>Activity:</b> <span id="activity"></span></p>
+    <p><b>Status:</b> <span id="status"></span></p>
+    <p><b>Works With:</b></p>
+    <ul id="worksWithList"></ul>
+  </div>
+
+<script>
+  const activityColorMap = {
+    "Investor": "green",
+    "Developer": "red",
+    "Educator": "blue",
+    "Partner": "purple",
+    "Consultant": "orange",
+    "Advisor": "yellow"
+  };
+
+  const players = [];
+  const arcsData = [];
+
+  fetch('https://opensheet.elk.sh/1Z317vxNvOkVkg9f55QfXy2NIY7Eh45yeIzUvDEv/Sheet1')  // <-- the google sheet URL publicly published
+    .then(res => res.json())
+    .then(data => {
+      data.forEach(row => {
+        const worksWithArray = row.worksWith ? row.worksWith.split(',').map(name => name.trim()) : [];
+
+        const player = {
+          name: row.name,
+          lat: parseFloat(row.lat),
+          lng: parseFloat(row.lng),
+          address: row.address,
+          activity: row.activity,
+          status: row.status,
+          worksWith: worksWithArray
+        };
+
+        players.push(player);
+      });
+
+      // Now build arcs
+      players.forEach(sourcePlayer => {
+        sourcePlayer.worksWith.forEach(targetName => {
+          const targetPlayer = players.find(p => p.name === targetName);
+          if (targetPlayer) {
+            arcsData.push({
+              startLat: sourcePlayer.lat,
+              startLng: sourcePlayer.lng,
+              endLat: targetPlayer.lat,
+              endLng: targetPlayer.lng,
+              color: [
+                activityColorMap[sourcePlayer.activity] || 'white',
+                activityColorMap[targetPlayer.activity] || 'white'
+              ],
+              label: `${sourcePlayer.name} ➝ ${targetPlayer.name}`
+            });
+          }
+        });
+      });
+
+      // Render the globe
+      const globe = new Globe()(document.getElementById('globeViz'))
+        .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
+        .arcsData(arcsData)
+        .arcColor('color')
+        .arcLabel('label')
+        .arcDashLength(() => 0.4)
+        .arcDashGap(() => 2)
+        .arcDashAnimateTime(() => 2000)
+        .labelsData(players)
+        .labelLat(d => d.lat)
+        .labelLng(d => d.lng)
+        .labelText(d => d.name)
+        .labelSize(1.3)
+        .labelDotRadius(0.5)
+        .labelColor(() => 'white')
+        .labelLabel(d => `${d.name} (${d.status})`)
+        .onLabelClick(showPlayerInfo);
+    });
+
+  function showPlayerInfo(player) {
+    document.getElementById('playerName').innerText = player.name;
+    document.getElementById('address').innerText = player.address;
+    document.getElementById('activity').innerText = player.activity;
+    document.getElementById('status').innerText = player.status;
+
+    const worksWithList = document.getElementById('worksWithList');
+    worksWithList.innerHTML = '';
+    player.worksWith.forEach(name => {
+      const li = document.createElement('li');
+      li.textContent = name;
+      worksWithList.appendChild(li);
+    });
+
+    document.getElementById('infoPanel').style.display = 'block';
+  }
+</script>
+</body>
+</html>
+"""
+
+with open("interactive_globe.html", "w") as f:
+    f.write(html_code)
+
+from google.colab import files
+files.download("interactive_globe.html")
