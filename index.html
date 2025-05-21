@@ -1,6 +1,5 @@
 # correct one
 
-html_code = """
 <!DOCTYPE html>
 <html>
 <head>
@@ -127,10 +126,3 @@ html_code = """
 </script>
 </body>
 </html>
-"""
-
-with open("interactive_globe.html", "w") as f:
-    f.write(html_code)
-
-from google.colab import files
-files.download("interactive_globe.html")
