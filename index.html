@@ -1,6 +1,8 @@
+<!DOCTYPE html>
+<html>
 <head>
   <meta charset="utf-8">
-  <title>Globe.gl - Clickable Nodes</title>
+  <title>Interactive Globe with Players</title>
   <style>
     body { margin: 0; overflow: hidden; font-family: Arial; }
     #globeViz { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; }
@@ -18,8 +20,7 @@
     #infoPanel h3 { margin-top: 0; }
     #infoPanel ul { padding-left: 20px; }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/globe.gl@4.3.4/dist/globe.gl.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
 </head>
 <body>
   <div id="globeViz"></div>
@@ -32,100 +33,101 @@
     <ul id="worksWithList"></ul>
   </div>
 
-<script>
-  const activityColorMap = {
-    "Investor": "green",
-    "Developer": "red",
-    "Educator": "blue",
-    "Partner": "purple",
-    "Consultant": "orange",
-    "Advisor": "yellow"
-  };
+  <script>
+    const activityColorMap = {
+      "Investor": "green",
+      "Developer": "red",
+      "Educator": "blue",
+      "Partner": "purple",
+      "Consultant": "orange",
+      "Advisor": "yellow"
+    };
 
-  const players = [
-    {
-      name: "Alice",
-      lat: 37.7749,
-      lng: -122.4194,
-      address: "San Francisco, USA",
-      activity: "Developer",
-      status: "Active",
-      worksWith: ["Bob", "Charlie"]
-    },
-    {
-      name: "Bob",
-      lat: 51.5074,
-      lng: -0.1278,
-      address: "London, UK",
-      activity: "Investor",
-      status: "Active",
-      worksWith: ["Alice"]
-    },
-    {
-      name: "Charlie",
-      lat: 35.6895,
-      lng: 139.6917,
-      address: "Tokyo, Japan",
-      activity: "Educator",
-      status: "Inactive",
-      worksWith: []
-    }
-  ];
-
-  const arcsData = [];
-
-  players.forEach(sourcePlayer => {
-    sourcePlayer.worksWith.forEach(targetName => {
-      const targetPlayer = players.find(p => p.name === targetName);
-      if (targetPlayer) {
-        arcsData.push({
-          startLat: sourcePlayer.lat,
-          startLng: sourcePlayer.lng,
-          endLat: targetPlayer.lat,
-          endLng: targetPlayer.lng,
-          color: [
-            activityColorMap[sourcePlayer.activity] || 'white',
-            activityColorMap[targetPlayer.activity] || 'white'
-          ],
-          label: `${sourcePlayer.name} ➝ ${targetPlayer.name}`
-        });
+    const players = [
+      {
+        name: "Alice",
+        lat: 37.7749,
+        lng: -122.4194,
+        address: "San Francisco, USA",
+        activity: "Developer",
+        status: "Active",
+        worksWith: ["Bob", "Charlie"]
+      },
+      {
+        name: "Bob",
+        lat: 51.5074,
+        lng: -0.1278,
+        address: "London, UK",
+        activity: "Investor",
+        status: "Active",
+        worksWith: ["Alice"]
+      },
+      {
+        name: "Charlie",
+        lat: 35.6895,
+        lng: 139.6917,
+        address: "Tokyo, Japan",
+        activity: "Educator",
+        status: "Inactive",
+        worksWith: ["Alice"]
       }
-    });
-  });
+    ];
 
-  const globe = Globe()(document.getElementById('globeViz'))
-    .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
-    .arcsData(arcsData)
-    .arcColor('color')
-    .arcLabel('label')
-    .arcDashLength(() => 0.4)
-    .arcDashGap(() => 2)
-    .arcDashAnimateTime(() => 2000)
-    .labelsData(players)
-    .labelLat(d => d.lat)
-    .labelLng(d => d.lng)
-    .labelText(d => d.name)
-    .labelSize(1.3)
-    .labelDotRadius(0.5)
-    .labelColor(() => 'white')
-    .labelLabel(d => `${d.name} (${d.status})`)
-    .onLabelClick(showPlayerInfo);
+    const arcsData = [];
 
-  function showPlayerInfo(player) {
-    document.getElementById('playerName').innerText = player.name;
-    document.getElementById('address').innerText = player.address;
-    document.getElementById('activity').innerText = player.activity;
-    document.getElementById('status').innerText = player.status;
-
-    const worksWithList = document.getElementById('worksWithList');
-    worksWithList.innerHTML = '';
-    player.worksWith.forEach(name => {
-      const li = document.createElement('li');
-      li.textContent = name;
-      worksWithList.appendChild(li);
+    players.forEach(source => {
+      source.worksWith.forEach(targetName => {
+        const target = players.find(p => p.name === targetName);
+        if (target) {
+          arcsData.push({
+            startLat: source.lat,
+            startLng: source.lng,
+            endLat: target.lat,
+            endLng: target.lng,
+            color: [
+              activityColorMap[source.activity] || 'white',
+              activityColorMap[target.activity] || 'white'
+            ],
+            label: `${source.name} ➝ ${target.name}`
+          });
+        }
+      });
     });
 
-    document.getElementById('infoPanel').style.display = 'block';
-  }
-</script>
+    const globe = new Globe()(document.getElementById('globeViz'))
+      .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
+      .arcsData(arcsData)
+      .arcColor('color')
+      .arcLabel('label')
+      .arcDashLength(() => 0.4)
+      .arcDashGap(() => 2)
+      .arcDashAnimateTime(() => 2000)
+      .labelsData(players)
+      .labelLat(d => d.lat)
+      .labelLng(d => d.lng)
+      .labelText(d => d.name)
+      .labelSize(1.3)
+      .labelDotRadius(0.5)
+      .labelColor(() => 'white')
+      .labelLabel(d => `${d.name} (${d.status})`)
+      .onLabelClick(showPlayerInfo);
+
+    function showPlayerInfo(player) {
+      document.getElementById('playerName').innerText = player.name;
+      document.getElementById('address').innerText = player.address;
+      document.getElementById('activity').innerText = player.activity;
+      document.getElementById('status').innerText = player.status;
+
+      const worksWithList = document.getElementById('worksWithList');
+      worksWithList.innerHTML = '';
+      player.worksWith.forEach(name => {
+        const li = document.createElement('li');
+        li.textContent = name;
+        worksWithList.appendChild(li);
+      });
+
+      document.getElementById('infoPanel').style.display = 'block';
+    }
+  </script>
 </body>
+</html>
