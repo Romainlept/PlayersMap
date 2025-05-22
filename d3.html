@@ -191,7 +191,6 @@
     let rotation = [0, -20];
     let lastRotation = [...rotation];
     let isDragging = false;
-    let timer;
 
     const drag = d3.drag()
       .on("start", () => {
@@ -203,7 +202,7 @@
         const dx = event.dx;
         const dy = event.dy;
 
-        // Update rotation based on mouse movement, adjusted sensitivity
+        // Update rotation with mouse movement sensitivity
         rotation[0] = lastRotation[0] + dx * 0.5;
         rotation[1] = Math.min(90, Math.max(-90, lastRotation[1] - dy * 0.5));
 
