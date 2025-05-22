@@ -1,18 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Cesium Globe with Arcs and Labels</title>
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Cesium.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <meta charset="utf-8">
+  <title>Cesium Globe with Players and Arcs</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
     html, body, #cesiumContainer {
-      width: 100%;
-      height: 100%;
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      font-family: Arial, sans-serif;
+      width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
     }
     .cesium-infoBox {
       font-size: 14px;
@@ -22,125 +17,68 @@
 <body>
   <div id="cesiumContainer"></div>
   <script>
-    // Initialize Cesium Viewer with high-resolution ArcGIS World Imagery
+    // Create viewer
     const viewer = new Cesium.Viewer('cesiumContainer', {
-      imageryProvider: new Cesium.UrlTemplateImageryProvider({
-        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        credit: 'Tiles © Esri'
+      terrainProvider: Cesium.createWorldTerrain(),
+      imageryProvider: new Cesium.ArcGisMapServerImageryProvider({
+        url: "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer"
       }),
-      baseLayerPicker: false
+      baseLayerPicker: false,
+      timeline: false,
+      animation: false
     });
 
-    // Optionally add borders and place names
-    viewer.imageryLayers.addImageryProvider(
-      new Cesium.ArcGisMapServerImageryProvider({
-        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer'
-      })
-    );
-
-    // Define players
     const players = [
       {
         name: "Lindbäcks Bygg AB",
+        lat: 65.48344113783263,
+        lng: 21.557848624839828,
         activity: "Pre-Fab Manufacturer",
-        lat: 65.4834,
-        lng: 21.5578,
         worksWith: ["Assembly Corp."]
       },
       {
         name: "Assembly Corp.",
+        lat: 43.645031529503605, 
+        lng: -79.38289523887308,
         activity: "Pre-Fab Developer",
-        lat: 43.6450,
-        lng: -79.3828,
         worksWith: ["Lindbäcks Bygg AB"]
       },
       {
-        name: "Tamlin International Homes",
+        name: "Paradigm Building Solutions Ltd.",
+        lat: 51.14036918325003,
+        lng: -120.1174733436564,
         activity: "Pre-Fab Developer",
-        lat: 49.2347,
-        lng: -122.8520,
-        worksWith: ["All-Fab"]
+        worksWith: ["Randek AB"]
       },
       {
-        name: "All-Fab",
+        name: "Randek AB",
+        lat: 56.90646671744641,
+        lng: 12.452409652003537,
         activity: "Pre-Fab Manufacturer",
-        lat: 49.8864,
-        lng: -97.0379,
-        worksWith: ["Tamlin International Homes"]
+        worksWith: ["Paradigm Building Solutions Ltd."]
       }
     ];
 
     // Add points and labels
     players.forEach(player => {
-      const pos = Cesium.Cartesian3.fromDegrees(player.lng, player.lat);
-      
-      // Point (dot)
+      // Point
       viewer.entities.add({
-        position: pos,
+        name: player.name,
+        position: Cesium.Cartesian3.fromDegrees(player.lng, player.lat),
         point: {
           pixelSize: 10,
           color: Cesium.Color.RED,
           outlineColor: Cesium.Color.WHITE,
-          outlineWidth: 2
+          outlineWidth: 1
         },
         label: {
           text: `${player.name}\n${player.activity}`,
-          font: '18px sans-serif',
+          font: '14px sans-serif',
           fillColor: Cesium.Color.WHITE,
           outlineColor: Cesium.Color.BLACK,
-          outlineWidth: 3,
+          outlineWidth: 2,
           style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-          horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
           verticalOrigin: Cesium.VerticalOrigin.TOP,
+          horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
           pixelOffset: new Cesium.Cartesian2(0, -15),
-          scaleByDistance: new Cesium.NearFarScalar(1.5e2, 1.2, 1.5e7, 0.3) // Smaller as you zoom out
-        }
-      });
-    });
-
-    // Add arcs between players
-    function addArc(start, end) {
-      const startCarto = Cesium.Cartographic.fromDegrees(start.lng, start.lat);
-      const endCarto = Cesium.Cartographic.fromDegrees(end.lng, end.lat);
-      const midLat = (start.lat + end.lat) / 2 + 10;
-      const midLng = (start.lng + end.lng) / 2;
-      const midCarto = Cesium.Cartographic.fromDegrees(midLng, midLat);
-
-      const startPos = Cesium.Cartographic.toCartesian(startCarto);
-      const midPos = Cesium.Cartographic.toCartesian(midCarto);
-      const endPos = Cesium.Cartographic.toCartesian(endCarto);
-
-      const arcPositions = Cesium.CatmullRomSpline.createNatural({
-        times: [0.0, 0.5, 1.0],
-        points: [startPos, midPos, endPos]
-      });
-
-      const positions = [];
-      for (let i = 0; i <= 100; i++) {
-        positions.push(arcPositions.evaluate(i / 100));
-      }
-
-      viewer.entities.add({
-        polyline: {
-          positions: positions,
-          width: 2,
-          material: Cesium.Color.YELLOW.withAlpha(0.7)
-        }
-      });
-    }
-
-    // Draw arcs
-    players.forEach(player => {
-      player.worksWith.forEach(partnerName => {
-        const target = players.find(p => p.name === partnerName);
-        if (target) {
-          addArc(player, target);
-        }
-      });
-    });
-
-    // Zoom to all
-    viewer.zoomTo(viewer.entities);
-  </script>
-</body>
-</html>
+          distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 1e6)
