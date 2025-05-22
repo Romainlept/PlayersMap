@@ -40,7 +40,7 @@
     };
 
     const players = [
-      {name: "Lindbäcks Bygg AB",
+      {name: "Lindbacks Bygg AB",
         lat: 65.48344113783263,
         lng: 21.557848624839828,
         address: "Hammarvägen 21, 943 36 Öjebyn, Sweden",
@@ -53,7 +53,7 @@
         address: "123 Front St W Suite 300, Toronto, ON M5J 2M2",
         activity: "Pre-Fab Developer",
         status: "Competitor",
-        worksWith: ["Lindbäcks Bygg AB"]},
+        worksWith: ["Lindbacks Bygg AB"]},
       {name: "Paradigm Building Solutions Ltd.",
         lat: 51.14036918325003,
         lng: -120.1174733436564,
@@ -133,9 +133,9 @@
       .labelText(d => `${d.name}\n(${d.activity})`)
       .labelType('text')
       .labelColor(() => 'white')
-      .labelSize(0.6)
+      .labelSize(0.5)
       .labelDotRadius(0.3)
-      .labelAltitude(0.02)
+      .labelAltitude(-0.015)  // Moves label below the dot
       .labelLabel(d => `${d.name} (${d.status})`)
       .onLabelClick(showPlayerInfo);
 
