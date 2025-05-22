@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<meta charset="utf-8" />
+<title>Players Globe with Arcs</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: #111;
+    color: white;
+    font-family: Arial, sans-serif;
+  }
+
+  svg {
+    display: block;
+    margin: auto;
+    background: #222;
+  }
+
+  .player-circle {
+    fill: #ff9933;
+    stroke: #fff;
+    stroke-width: 1.5px;
+    cursor: pointer;
+  }
+
+  .player-label {
+    fill: #fff;
+    font-size: 12px;
+    pointer-events: none;
+    text-shadow: 0 0 3px black;
+  }
+
+  .arc {
+    fill: none;
+    stroke: #66ccff;
+    stroke-width: 1.5px;
+    opacity: 0.7;
+  }
+</style>
+<body>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson@3"></script>
+
+  <script>
+    const width = 960,
+      height = 600;
+
+    const svg = d3
+      .select("body")
+      .append("svg")
+      .attr("width", width)
+      .attr("height", height);
+
+    const projection = d3
+      .geoOrthographic()
+      .scale(280)
+      .translate([width / 2, height / 2])
+      .clipAngle(90);
+
+    const path = d3.geoPath(projection);
+
+    // Draw globe background circle
+    svg
+      .append("circle")
+      .attr("fill", "#000020")
+      .attr("stroke", "#000")
+      .attr("stroke-width", 1)
+      .attr("cx", width / 2)
+      .attr("cy", height / 2)
+      .attr("r", projection.scale());
+
+    // Load world data and draw countries
+    d3.json("https://unpkg.com/world-atlas@2/countries-110m.json").then(
+      (worldData) => {
+        const countries = topojson.feature(
+          worldData,
+          worldData.objects.countries
+        );
+
+        svg
+          .append("g")
+          .attr("class", "countries")
+          .selectAll("path")
+          .data(countries.features)
+          .join("path")
+          .attr("fill", "#0a3d62")
+          .attr("stroke", "#08306b")
+          .attr("stroke-width", 0.5)
+          .attr("d", path);
+
+        drawPlayersAndArcs();
+      }
+    );
+
+    // Your player data
+    const players = [
+      {
+        name: "Lindbäcks Bygg AB",
+        lat: 65.48344113783263,
+        lng: 21.557848624839828,
+        activity: "Pre-Fab Manufacturer",
+        worksWith: ["Assembly Corp."],
+      },
+      {
+        name: "Assembly Corp.",
+        lat: 43.645031529503605,
+        lng: -79.38289523887308,
+        activity: "Pre-Fab Developer",
+        worksWith: ["Lindbäcks Bygg AB"],
+      },
+      {
+        name: "Paradigm Building Solutions Ltd.",
+        lat: 51.14036918325003,
+        lng: -120.1174733436564,
+        activity: "Pre-Fab Developer",
+        worksWith: ["Randek AB"],
+      },
+      {
+        name: "Randek AB",
+        lat: 56.90646671744641,
+        lng: 12.452409652003537,
+        activity: "Pre-Fab Manufacturer",
+        worksWith: ["Paradigm Building Solutions Ltd."],
+      },
+    ];
+
+    // Helper: get player index by name
+    function getPlayerIndex(name) {
+      return players.findIndex((p) => p.name === name);
+    }
+
+    function drawPlayersAndArcs() {
+      // Build connections from worksWith arrays
+      const connections = [];
+      players.forEach((player, i) => {
+        player.worksWith.forEach((partner) => {
+          const j = getPlayerIndex(partner);
+          if (j !== -1) connections.push([i, j]);
+        });
+      });
+
+      // Draw arcs
+      svg
+        .append("g")
+        .attr("class", "arcs")
+        .selectAll("path")
+        .data(connections)
+        .join("path")
+        .attr("class", "arc")
+        .attr("d", ([i, j]) => {
+          const source = [players[i].lng, players[i].lat];
+          const target = [players[j].lng, players[j].lat];
+          const sourcePos = projection(source);
+          const targetPos = projection(target);
+          if (!sourcePos || !targetPos) return null;
+
+          // Great arc points for smooth curve
+          const mid = d3.geoInterpolate(source, target)(0.5);
+          const midPos = projection(mid);
+          return d3.line()([sourcePos, midPos, targetPos]);
+        });
+
+      // Draw player circles and labels
+      const playerGroups = svg
+        .append("g")
+        .attr("class", "players")
+        .selectAll("g")
+        .data(players)
+        .join("g")
+        .attr("transform", (d) => {
+          const point = projection([d.lng, d.lat]);
+          return point ? `translate(${point[0]},${point[1]})` : null;
+        });
+
+      playerGroups
+        .append("circle")
+        .attr("class", "player-circle")
+        .attr("r", 6)
+        .attr("fill", "#ff9933");
+
+      playerGroups
+        .append("text")
+        .attr("class", "player-label")
+        .attr("x", 8)
+        .attr("y", 4)
+        .text((d) => `${d.name} (${d.activity})`);
+    }
+
+    // Animate rotation of globe
+    let rotation = [0, -20];
+    d3.timer(function (elapsed) {
+      rotation[0] = (elapsed * 0.02) % 360;
+      projection.rotate(rotation);
+
+      svg.selectAll("path.countries").attr("d", path);
+      svg.selectAll("g.players g").attr("transform", (d) => {
+        const point = projection([d.lng, d.lat]);
+        return point ? `translate(${point[0]},${point[1]})` : null;
+      });
+      svg.selectAll("path.arc").attr("d", ([i, j]) => {
+        const source = [players[i].lng, players[i].lat];
+        const target = [players[j].lng, players[j].lat];
+        const sourcePos = projection(source);
+        const targetPos = projection(target);
+        if (!sourcePos || !targetPos) return null;
+
+        const mid = d3.geoInterpolate(source, target)(0.5);
+        const midPos = projection(mid);
+        return d3.line()([sourcePos, midPos, targetPos]);
+      });
+
+      svg
+        .select("circle")
+        .attr("cx", width / 2)
+        .attr("cy", height / 2)
+        .attr("r", projection.scale());
+    });
+  </script>
+</body>
+</html>
