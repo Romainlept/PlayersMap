@@ -1,3 +1,5 @@
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <title>Interactive Globe with Players</title>
@@ -137,18 +139,6 @@
       .labelLabel(d => `${d.name} (${d.status})`)
       .onLabelClick(showPlayerInfo);
 
-    // 🔄 Dynamic label size scaling based on camera distance
-    const camera = globe.camera();
-    const controls = globe.controls();
-    const baseLabelSize = 1.3;
-
-    controls.addEventListener('change', () => {
-      const zoomFactor = camera.position.length();
-      const scale = 150 / zoomFactor;
-      const clampedScale = Math.max(0.5, Math.min(5, baseLabelSize * scale));
-      globe.labelSize(clampedScale);
-    });
-
     function showPlayerInfo(player) {
       document.getElementById('playerName').innerText = player.name;
       document.getElementById('address').innerText = player.address;
@@ -165,5 +155,19 @@
 
       document.getElementById('infoPanel').style.display = 'block';
     }
+
+    // Invert zoom: labels get smaller when zoomed in
+    const camera = globe.camera();
+    const controls = globe.controls();
+    const baseLabelSize = 1.3;
+
+    controls.addEventListener('change', () => {
+      const zoomFactor = camera.position.length();
+      const scale = zoomFactor / 150;
+      const clampedScale = Math.max(0.3, Math.min(2.5, baseLabelSize * scale));
+      globe.labelSize(clampedScale);
+      globe.labelDotRadius(Math.max(0.1, Math.min(1, 0.5 * scale))); // Optional: scale dots too
+    });
   </script>
 </body>
+</html>
