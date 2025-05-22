@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cesium Globe with Arcs and Labels</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.118/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    html, body, #cesiumContainer {
+      width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <div id="cesiumContainer"></div>
+  <script>
+    // Start viewer
+    const viewer = new Cesium.Viewer('cesiumContainer', {
+      imageryProvider: new Cesium.IonImageryProvider({ assetId: 3 }), // Bing Aerial
+      baseLayerPicker: false
+    });
+
+    // Sample player data
+    const players = [
+      {
+        name: "Assembly Corp.",
+        lat: 43.6450,
+        lon: -79.3829,
+        activity: "Pre-Fab Developer",
+        color: Cesium.Color.RED,
+        worksWith: ["Lindbäcks Bygg AB"]
+      },
+      {
+        name: "Lindbäcks Bygg AB",
+        lat: 65.4834,
+        lon: 21.5578,
+        activity: "Pre-Fab Manufacturer",
+        color: Cesium.Color.PURPLE,
+        worksWith: ["Assembly Corp."]
+      }
+    ];
+
+    // Helper to add points + labels
+    players.forEach(player => {
+      viewer.entities.add({
+        name: player.name,
+        position: Cesium.Cartesian3.fromDegrees(player.lon, player.lat),
+        point: {
+          pixelSize: 10,
+          color: player.color,
+        },
+        label: {
+          text: `${player.name}\n${player.activity}`,
+          font: "14px sans-serif",
+          fillColor: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 2,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          pixelOffset: new Cesium.Cartesian2(0, -15),
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE
+        }
+      });
+    });
+
+    // Helper to draw arcs between partners
+    function drawArc(from, to, color) {
+      const p1 = Cesium.Cartesian3.fromDegrees(from.lon, from.lat);
+      const p2 = Cesium.Cartesian3.fromDegrees(to.lon, to.lat);
+
+      // Midpoint raised to simulate arc
+      const midpoint = Cesium.Cartesian3.midpoint(p1, p2, new Cesium.Cartesian3());
+      Cesium.Cartesian3.multiplyByScalar(Cesium.Cartesian3.normalize(midpoint, new Cesium.Cartesian3()), 1.05 * Cesium.Cartesian3.distance(p1, p2) / 2, midpoint);
+
+      viewer.entities.add({
+        polyline: {
+          positions: [p1, midpoint, p2],
+          width: 2,
+          material: color.withAlpha(0.6)
+        }
+      });
+    }
+
+    // Add arcs between collaborators
+    players.forEach(source => {
+      source.worksWith.forEach(targetName => {
+        const target = players.find(p => p.name === targetName);
+        if (target) {
+          drawArc(source, target, source.color);
+        }
+      });
+    });
+
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(-30, 50, 20000000)
+    });
+  </script>
+</body>
+</html>
