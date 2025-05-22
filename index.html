@@ -131,7 +131,13 @@
     .labelsData(players)
     .labelLat(d => d.lat)
     .labelLng(d => d.lng)
-    .labelText(d => d.name)
+    .labelText(d => `
+          <div style="text-align: center;">
+            <div style="font-size: 1em; font-weight: bold;">${d.name}</div>
+            <div style="font-size: 0.66em; font-style: italic;">${d.activity}</div>
+          </div>
+        `)
+    .labelType('html')
     .labelColor(() => 'white')
     .labelResolution(4) // sharper small text
     .labelLabel(d => `${d.name} (${d.status})`)
