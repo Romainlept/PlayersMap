@@ -120,28 +120,29 @@
     });
   });
 
-  const globe = new Globe()(document.getElementById('globeViz'))
-    .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
-    .arcsData(arcsData)
-    .arcColor('color')
-    .arcLabel('label')
-    .arcDashLength(() => 0.4)
-    .arcDashGap(() => 2)
-    .arcDashAnimateTime(() => 2000)
-    .labelsData(players)
-    .labelLat(d => d.lat)
-    .labelLng(d => d.lng)
-    .labelText(d => `
-          <div style="text-align: center;">
-            <div style="font-size: 1em; font-weight: bold;">${d.name}</div>
-            <div style="font-size: 0.66em; font-style: italic;">${d.activity}</div>
-          </div>
-        `)
-    .labelType('html')
-    .labelColor(() => 'white')
-    .labelResolution(4) // sharper small text
-    .labelLabel(d => `${d.name} (${d.status})`)
-    .onLabelClick(showPlayerInfo);
+const globe = new Globe()(document.getElementById('globeViz'))
+  .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
+  .arcsData(arcsData)
+  .arcColor('color')
+  .arcLabel('label')
+  .arcDashLength(() => 0.4)
+  .arcDashGap(() => 2)
+  .arcDashAnimateTime(() => 2000)
+  .labelsData(players)
+  .labelLat(d => d.lat)
+  .labelLng(d => d.lng)
+  .labelText(d => `
+    <div style="text-align: center;">
+      <div style="font-size: 1em; font-weight: bold;">${d.name}</div>
+      <div style="font-size: 0.66em; font-style: italic;">${d.activity}</div>
+    </div>
+  `)
+  .labelType('html')
+  .labelColor(() => 'white')
+  .labelResolution(4)
+  .labelLabel(d => `${d.name} (${d.status})`)
+  .onLabelClick(showPlayerInfo);
+
 
   // Set initial size small
   let baseLabelSize = 0.2;
