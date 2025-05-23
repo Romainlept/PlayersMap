@@ -133,7 +133,7 @@
     let playerGroup, arcsGroup;
 
     function drawPlayersAndArcs() {
-      // Draw arcs group (empty for now)
+      // Draw arcs group
       arcsGroup = svg.append("g").attr("class", "arcs");
 
       // Prepare arcs data: pairs of indexes
@@ -159,8 +159,7 @@
 
       playerGroup.append("circle")
         .attr("class", "player-circle")
-        .attr("r", 6)
-        .attr("fill", "#ff9933");
+        .attr("r", 6);
 
       playerGroup.append("text")
         .attr("class", "player-label")
@@ -175,8 +174,8 @@
     let isDragging = false;
 
     // Drag behavior to rotate globe
-    const drag = d3.drag()
-      .on("start", () => {
+    const dragBehavior = d3.drag()
+      .on("start", (event) => {
         isDragging = true;
         lastRotation = [...rotation];
         svg.style("cursor", "grabbing");
@@ -191,7 +190,7 @@
         svg.style("cursor", "grab");
       });
 
-    svg.call(drag);
+    svg.call(dragBehavior);
 
     function update() {
       projection.rotate(rotation);
@@ -225,7 +224,7 @@
         });
       }
 
-      // Update globe circle radius & position (optional but consistent)
+      // Update globe circle radius & position
       globeCircle
         .attr("cx", width / 2)
         .attr("cy", height / 2)
