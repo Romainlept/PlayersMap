@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <meta charset="utf-8" />
-<title>Interactive Players Globe with Arcs - Smooth Drag</title>
+<title>Interactive Players Globe with Smooth Drag</title>
 <style>
   body {
     margin: 0;
@@ -73,10 +73,8 @@
       .attr("cy", height / 2)
       .attr("r", projection.scale());
 
-    // Container groups for countries, players, arcs
     let countriesGroup, playerGroup, arcsGroup;
 
-    // Player data
     const players = [
       {
         name: "Lindbäcks Bygg AB",
@@ -108,12 +106,10 @@
       },
     ];
 
-    // Helper: get index by player name
     function getPlayerIndex(name) {
       return players.findIndex(p => p.name === name);
     }
 
-    // Draw the map + players + arcs
     function drawMap(worldData) {
       const countries = topojson.feature(worldData, worldData.objects.countries);
 
@@ -127,10 +123,8 @@
         .attr("stroke-width", 0.5)
         .attr("d", path);
 
-      // Arcs group
       arcsGroup = svg.append("g").attr("class", "arcs");
 
-      // Compute connections as pairs of indexes
       const connections = [];
       players.forEach((player, i) => {
         player.worksWith.forEach(partnerName => {
@@ -144,7 +138,6 @@
         .join("path")
         .attr("class", "arc");
 
-      // Players group
       playerGroup = svg.append("g").attr("class", "players")
         .selectAll("g")
         .data(players)
@@ -160,22 +153,24 @@
         .attr("y", 4)
         .text(d => `${d.name} (${d.activity})`);
 
-      update(); // Initial render
+      update();
     }
 
-    // Rotation variables
     let rotation = [0, -20];
     let lastRotation = [...rotation];
 
-    // Drag behavior for smooth rotation
     const dragBehavior = d3.drag()
       .on("start", (event) => {
         lastRotation = [...rotation];
         svg.style("cursor", "grabbing");
       })
       .on("drag", (event) => {
-        rotation[0] = lastRotation[0] + event.dx * 0.5;
+        // Allow infinite horizontal rotation by wrapping around 360 degrees:
+        rotation[0] = (lastRotation[0] + event.dx * 0.5) % 360;
+
+        // Clamp vertical rotation between -90 and +90 to avoid flipping:
         rotation[1] = Math.min(90, Math.max(-90, lastRotation[1] - event.dy * 0.5));
+
         update();
       })
       .on("end", () => {
@@ -184,7 +179,6 @@
 
     svg.call(dragBehavior);
 
-    // Update function to redraw everything on rotation change
     function update() {
       projection.rotate(rotation);
 
@@ -220,7 +214,6 @@
         .attr("r", projection.scale());
     }
 
-    // Load the world data and start
     d3.json("https://unpkg.com/world-atlas@2/countries-110m.json").then(drawMap);
   </script>
 </body>
