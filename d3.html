@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <meta charset="utf-8" />
-<title>Interactive Players Globe with Arcs</title>
+<title>Interactive Players Globe with Arcs - Drag Only</title>
 <style>
   body {
     margin: 0;
@@ -171,12 +171,10 @@
     // Rotation state
     let rotation = [0, -20];
     let lastRotation = [...rotation];
-    let isDragging = false;
 
-    // Drag behavior to rotate globe
+    // Drag behavior to rotate globe (no auto rotation)
     const dragBehavior = d3.drag()
       .on("start", (event) => {
-        isDragging = true;
         lastRotation = [...rotation];
         svg.style("cursor", "grabbing");
       })
@@ -186,7 +184,6 @@
         update();
       })
       .on("end", () => {
-        isDragging = false;
         svg.style("cursor", "grab");
       });
 
@@ -230,14 +227,6 @@
         .attr("cy", height / 2)
         .attr("r", projection.scale());
     }
-
-    // Auto rotate when not dragging
-    d3.timer(() => {
-      if (!isDragging) {
-        rotation[0] = (rotation[0] + 0.2) % 360;
-        update();
-      }
-    });
   </script>
 </body>
 </html>
