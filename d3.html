@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <meta charset="utf-8" />
-<title>Interactive Players Globe with Arcs - Drag Only</title>
+<title>Interactive Players Globe with Arcs - Smooth Drag</title>
 <style>
   body {
     margin: 0;
@@ -64,7 +64,7 @@
 
     const path = d3.geoPath(projection);
 
-    // Draw globe background circle
+    // Globe circle for background
     const globeCircle = svg.append("circle")
       .attr("fill", "#000020")
       .attr("stroke", "#000")
@@ -73,26 +73,8 @@
       .attr("cy", height / 2)
       .attr("r", projection.scale());
 
-    // Load and draw countries
-    let countriesGroup;
-
-    d3.json("https://unpkg.com/world-atlas@2/countries-110m.json").then(worldData => {
-      const countries = topojson.feature(worldData, worldData.objects.countries);
-
-      countriesGroup = svg.append("g")
-        .attr("class", "countries");
-
-      countriesGroup.selectAll("path")
-        .data(countries.features)
-        .join("path")
-        .attr("fill", "#0a3d62")
-        .attr("stroke", "#08306b")
-        .attr("stroke-width", 0.5)
-        .attr("d", path);
-
-      drawPlayersAndArcs();
-      update();  // Initial render
-    });
+    // Container groups for countries, players, arcs
+    let countriesGroup, playerGroup, arcsGroup;
 
     // Player data
     const players = [
@@ -126,17 +108,29 @@
       },
     ];
 
+    // Helper: get index by player name
     function getPlayerIndex(name) {
       return players.findIndex(p => p.name === name);
     }
 
-    let playerGroup, arcsGroup;
+    // Draw the map + players + arcs
+    function drawMap(worldData) {
+      const countries = topojson.feature(worldData, worldData.objects.countries);
 
-    function drawPlayersAndArcs() {
-      // Draw arcs group
+      countriesGroup = svg.append("g").attr("class", "countries");
+
+      countriesGroup.selectAll("path")
+        .data(countries.features)
+        .join("path")
+        .attr("fill", "#0a3d62")
+        .attr("stroke", "#08306b")
+        .attr("stroke-width", 0.5)
+        .attr("d", path);
+
+      // Arcs group
       arcsGroup = svg.append("g").attr("class", "arcs");
 
-      // Prepare arcs data: pairs of indexes
+      // Compute connections as pairs of indexes
       const connections = [];
       players.forEach((player, i) => {
         player.worksWith.forEach(partnerName => {
@@ -150,9 +144,8 @@
         .join("path")
         .attr("class", "arc");
 
-      // Draw player groups (circle + label)
-      playerGroup = svg.append("g")
-        .attr("class", "players")
+      // Players group
+      playerGroup = svg.append("g").attr("class", "players")
         .selectAll("g")
         .data(players)
         .join("g");
@@ -166,13 +159,15 @@
         .attr("x", 8)
         .attr("y", 4)
         .text(d => `${d.name} (${d.activity})`);
+
+      update(); // Initial render
     }
 
-    // Rotation state
+    // Rotation variables
     let rotation = [0, -20];
     let lastRotation = [...rotation];
 
-    // Drag behavior to rotate globe (no auto rotation)
+    // Drag behavior for smooth rotation
     const dragBehavior = d3.drag()
       .on("start", (event) => {
         lastRotation = [...rotation];
@@ -189,23 +184,21 @@
 
     svg.call(dragBehavior);
 
+    // Update function to redraw everything on rotation change
     function update() {
       projection.rotate(rotation);
 
-      // Update countries paths (globe)
       if (countriesGroup) {
         countriesGroup.selectAll("path").attr("d", path);
       }
 
-      // Update player positions
       if (playerGroup) {
         playerGroup.attr("transform", d => {
-          const p = projection([d.lng, d.lat]);
-          return p ? `translate(${p[0]},${p[1]})` : null;
+          const coords = projection([d.lng, d.lat]);
+          return coords ? `translate(${coords[0]},${coords[1]})` : null;
         });
       }
 
-      // Update arcs positions
       if (arcsGroup) {
         arcsGroup.selectAll("path").attr("d", ([i, j]) => {
           const source = [players[i].lng, players[i].lat];
@@ -221,12 +214,14 @@
         });
       }
 
-      // Update globe circle radius & position
       globeCircle
         .attr("cx", width / 2)
         .attr("cy", height / 2)
         .attr("r", projection.scale());
     }
+
+    // Load the world data and start
+    d3.json("https://unpkg.com/world-atlas@2/countries-110m.json").then(drawMap);
   </script>
 </body>
 </html>
