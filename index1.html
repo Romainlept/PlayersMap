@@ -99,7 +99,6 @@
     ];
 
     const arcsData = [];
-
     players.forEach(source => {
       source.worksWith.forEach(targetName => {
         const target = players.find(p => p.name === targetName);
@@ -119,7 +118,7 @@
       });
     });
 
-    const globe = new Globe()(document.getElementById('globeViz'))
+    const globe = Globe()
       .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
       .arcsData(arcsData)
       .arcColor('color')
@@ -127,17 +126,18 @@
       .arcDashLength(() => 0.4)
       .arcDashGap(() => 2)
       .arcDashAnimateTime(() => 2000)
-      .labelsData(players)
+      .labelsData(players) // Start with all labels visible
       .labelLat(d => d.lat)
       .labelLng(d => d.lng)
       .labelText(d => `${d.name}\n(${d.activity})`)
       .labelType('text')
       .labelColor(() => 'white')
-      .labelSize(0.5)
-      .labelDotRadius(0.3)
-      .labelAltitude(-0.015)  // Moves label below the dot
+      .labelSize(0.3) // Smaller label text
+      .labelDotRadius(0.2) // Smaller label dot
+      .labelAltitude(-0.015) // Moves label below the dot
       .labelLabel(d => `${d.name} (${d.status})`)
-      .onLabelClick(showPlayerInfo);
+      .onLabelClick(showPlayerInfo)
+      (document.getElementById('globeViz'));
 
     function showPlayerInfo(player) {
       document.getElementById('playerName').innerText = player.name;
@@ -155,5 +155,23 @@
 
       document.getElementById('infoPanel').style.display = 'block';
     }
+
+    // Track zoom state and update labels
+    let isZoomedIn = true;
+    globe.onZoom(({ zoom }) => {
+      if (zoom < 0.7) {
+        // Hide labels when zoomed out
+        if (isZoomedIn) {
+          globe.labelsData([]);
+          isZoomedIn = false;
+        }
+      } else {
+        // Show labels when zoomed in
+        if (!isZoomedIn) {
+          globe.labelsData(players);
+          isZoomedIn = true;
+        }
+      }
+    });
   </script>
 </body>
