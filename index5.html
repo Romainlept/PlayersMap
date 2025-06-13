@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Globe with Always-Visible Labels and Hover Info</title>
+  <title>Globe with Always-Visible Labels and Dot Markers</title>
   <style>
     body { margin: 0; overflow: hidden; }
     #globeViz { width: 100vw; height: 100vh; }
@@ -12,7 +12,6 @@
 <body>
   <div id="globeViz"></div>
   <script>
-    // Example data with extra info for hover
     const points = [
       {
         name: "Name 1",
@@ -46,15 +45,14 @@
     // Initialize the globe
     const globe = Globe()
       .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
-      // Optional: Use pointsData if you want dots, but you can skip if you only want labels
       .pointsData(points)
       .pointLat(d => d.lat)
       .pointLng(d => d.lng)
-      .pointLabel(d => `${d.name}\nAddress: ${d.address}\nActivity: ${d.activity}\nStatus: ${d.status}`)
-      .pointColor(() => 'white') // Set to match background if you want to hide the dot
-      .pointAltitude(0)
-      .pointRadius(0.2)
-      .pointLabelSize(0.3)
+      // Tooltip with info as a list (using \n for new lines)
+      .pointLabel(d => `${d.name}\n\n• Address: ${d.address}\n• Activity: ${d.activity}\n• Status: ${d.status}`)
+      .pointColor(() => '#bbb') // Light gray dot (not red, not tall)
+      .pointAltitude(0) // On surface
+      .pointRadius(0.2) // Small dot
       .arcsData(arcs)
       .arcColor(() => 'white')
       (document.getElementById('globeViz'));
