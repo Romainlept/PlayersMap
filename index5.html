@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Minimal globe.gl format example</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    #globeViz { width: 100vw; height: 100vh; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
+</head>
+<body>
+  <div id="globeViz"></div>
+  <script>
+    // Minimal data: two points and one arc
+    const points = [
+      { name: "Name 1", lat: 40, lng: -70 },
+      { name: "Name 2", lat: 30, lng: 100 }
+    ];
+    const arcs = [
+      { startLat: 40, startLng: -70, endLat: 30, endLng: 100 }
+    ];
+
+    // Initialize the globe
+    const globe = Globe()
+      .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
+      .pointsData(points)
+      .pointLat(d => d.lat)
+      .pointLng(d => d.lng)
+      .pointLabel(d => d.name)
+      .pointColor(() => 'red')
+      .pointAltitude(0.1)
+      .pointRadius(0.2)
+      .arcsData(arcs)
+      .arcColor(() => 'white')
+      (document.getElementById('globeViz'));
+
+    // Add labels for the points (will be controlled by zoom)
+    globe.labelsData(points)
+      .labelLat(d => d.lat)
+      .labelLng(d => d.lng)
+      .labelText(d => d.name)
+      .labelSize(0.3)
+      .labelDotRadius(0.2)
+      .labelColor(() => 'white');
+
+    // Track zoom state and update labels
+    let isZoomedIn = false;
+    globe.onZoom(({ zoom }) => {
+      if (zoom > 0.7) {
+        // Zoomed in: show labels
+        if (!isZoomedIn) {
+          globe.labelsData(points);
+          isZoomedIn = true;
+        }
+      } else {
+        // Zoomed out: hide labels
+        if (isZoomedIn) {
+          globe.labelsData([]);
+          isZoomedIn = false;
+        }
+      }
+    });
+  </script>
+</body>
+</html>
