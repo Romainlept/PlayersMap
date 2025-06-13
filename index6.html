@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Modular Industry Globe with Partners</title>
+  <title>Modular Industry Globe: Core Firms and Supply Chains</title>
   <style>
     body { margin: 0; overflow: hidden; font-family: Arial; }
     #globeViz { width: 100vw; height: 100vh; }
@@ -34,33 +34,49 @@
   </div>
   <script>
     const points = [
-      // Assembly (Toronto)
-      { name: "Assembly Corp.", lat: 43.645, lng: -79.382, address: "Toronto, ON", activity: "Panelized Wood Builder", status: "Headquarters" },
-      // Lindbäcks (Sweden)
+      // Lindbäcks Group
       { name: "Lindbäcks Group", lat: 65.483, lng: 21.558, address: "Piteå, Sweden", activity: "Factory-Built Housing", status: "Headquarters" },
-      // Example partners for Lindbäcks
       { name: "Randek AB", lat: 56.906, lng: 12.452, address: "Falkenberg, Sweden", activity: "Modular Manufacturer", status: "Partner" },
       { name: "Paradigm Building Solutions Ltd.", lat: 51.140, lng: -120.117, address: "Louis Creek, BC", activity: "Modular Developer", status: "Partner" },
-      // Your modular firms (competitors, no partners among themselves)
-      { name: "ORCA LGS", lat: 49.687, lng: -124.994, address: "Courtenay, BC", activity: "Modular Manufacturer", status: "Headquarters" },
-      { name: "TASU", lat: 49.701, lng: -123.156, address: "Squamish, BC", activity: "Modular Developer", status: "Headquarters" },
-      { name: "BLUE COLLAR GROUP", lat: 52.978, lng: -122.493, address: "Quesnel, BC", activity: "Modular Builder", status: "Headquarters" },
-      { name: "Stack Modular", lat: 49.282, lng: -123.108, address: "Vancouver, BC", activity: "Modular Manufacturer", status: "Headquarters" },
-      { name: "Freeport Industries", lat: 49.166, lng: -123.933, address: "Nanaimo, BC", activity: "Modular Manufacturer", status: "Headquarters" },
-      { name: "NUQO Modular", lat: 49.282, lng: -123.108, address: "Vancouver, BC", activity: "Modular Manufacturer", status: "Headquarters" },
-      { name: "Bison Modular", lat: 50.062, lng: -96.516, address: "Beausejour, MB", activity: "Modular Manufacturer", status: "Headquarters" }
+      // Stantec
+      { name: "Stantec", lat: 53.546, lng: -113.491, address: "Edmonton, AB", activity: "Design & Engineering", status: "Headquarters" },
+      { name: "Stack Modular", lat: 49.282, lng: -123.108, address: "Vancouver, BC", activity: "Modular Manufacturer", status: "Partner" },
+      { name: "Bird Construction", lat: 43.651, lng: -79.383, address: "Toronto, ON", activity: "General Contractor", status: "Partner" },
+      { name: "Pacific Steel", lat: 49.282, lng: -123.120, address: "Vancouver, BC", activity: "Steel Fabricator", status: "Supplier" },
+      { name: "Advanced Wood Solutions", lat: 49.282, lng: -123.115, address: "Vancouver, BC", activity: "Wood Supplier", status: "Supplier" },
+      { name: "Vancouver Logistics", lat: 49.282, lng: -123.110, address: "Vancouver, BC", activity: "Logistics", status: "Local Partner" },
+      { name: "BC Electrical", lat: 49.282, lng: -123.105, address: "Vancouver, BC", activity: "Electrical", status: "Local Partner" },
+      // ARCAN
+      { name: "ARCAN", lat: 45.501, lng: -73.567, address: "Montreal, QC", activity: "Modular Builder", status: "Headquarters" },
+      { name: "Bison Modular", lat: 50.062, lng: -96.516, address: "Beausejour, MB", activity: "Modular Manufacturer", status: "Partner" },
+      { name: "Freeport Industries", lat: 49.166, lng: -123.933, address: "Nanaimo, BC", activity: "Modular Manufacturer", status: "Partner" },
+      { name: "Prairie Steel", lat: 50.062, lng: -96.520, address: "Beausejour, MB", activity: "Steel Supplier", status: "Supplier" },
+      { name: "Island Wood", lat: 49.166, lng: -123.930, address: "Nanaimo, BC", activity: "Wood Supplier", status: "Supplier" },
+      { name: "MB Transport", lat: 50.062, lng: -96.518, address: "Beausejour, MB", activity: "Transport", status: "Local Partner" },
+      { name: "Nanaimo Electric", lat: 49.166, lng: -123.935, address: "Nanaimo, BC", activity: "Electrical", status: "Local Partner" }
     ];
 
     const partners = {
-      "Assembly Corp.": ["Lindbäcks Group"],
-      "Lindbäcks Group": ["Assembly Corp.", "Randek AB", "Paradigm Building Solutions Ltd."],
-      // No partners among the other firms (they are competitors)
+      // Lindbäcks Group
+      "Lindbäcks Group": ["Randek AB", "Paradigm Building Solutions Ltd."],
+      // Stantec
+      "Stantec": ["Stack Modular", "Bird Construction"],
+      "Stack Modular": ["Pacific Steel", "Advanced Wood Solutions"],
+      "Pacific Steel": ["Vancouver Logistics"],
+      "Advanced Wood Solutions": ["BC Electrical"],
+      // ARCAN
+      "ARCAN": ["Bison Modular", "Freeport Industries"],
+      "Bison Modular": ["Prairie Steel"],
+      "Freeport Industries": ["Island Wood"],
+      "Prairie Steel": ["MB Transport"],
+      "Island Wood": ["Nanaimo Electric"]
     };
 
     const arcTypes = {
-      "Builder to Manufacturer": "#1f77b4",   // Blue
-      "Manufacturer to Manufacturer": "#ff7f0e", // Orange
-      "Manufacturer to Developer": "#2ca02c",    // Green
+      "Core to Manufacturer": "#1f77b4",      // Blue
+      "Manufacturer to Supplier": "#ff7f0e",  // Orange
+      "Supplier to Local Partner": "#2ca02c", // Green
+      "Other": "#9467bd"                      // Purple
     };
 
     const arcs = [];
@@ -69,14 +85,17 @@
         const target = points.find(p => p.name === targetName);
         if (target) {
           let type;
-          if (source.activity.includes("Builder") && target.activity.includes("Manufacturer")) {
-            type = "Builder to Manufacturer";
-          } else if (source.activity.includes("Manufacturer") && target.activity.includes("Manufacturer")) {
-            type = "Manufacturer to Manufacturer";
-          } else if (source.activity.includes("Manufacturer") && target.activity.includes("Developer")) {
-            type = "Manufacturer to Developer";
+          if ((source.name === "Stantec" || source.name === "ARCAN" || source.name === "Lindbäcks Group") && 
+              (target.activity === "Modular Manufacturer" || target.activity === "General Contractor" || target.activity === "Modular Developer")) {
+            type = "Core to Manufacturer";
+          } else if ((source.activity === "Modular Manufacturer" || source.activity === "General Contractor" || source.activity === "Modular Developer") && 
+                     (target.activity === "Steel Fabricator" || target.activity === "Wood Supplier")) {
+            type = "Manufacturer to Supplier";
+          } else if ((source.activity === "Steel Fabricator" || source.activity === "Wood Supplier") && 
+                     (target.activity === "Logistics" || target.activity === "Electrical" || target.activity === "Transport")) {
+            type = "Supplier to Local Partner";
           } else {
-            type = "Builder to Manufacturer"; // Fallback
+            type = "Other";
           }
           arcs.push({
             startLat: source.lat,
@@ -113,7 +132,7 @@
       .labelDotRadius(0.2)
       .labelColor(() => 'white');
 
-    // Optional: Info panel for more details (not used by default in globe.gl, but here for reference)
+    // Optional: Info panel for more details
     function showPlayerInfo(player) {
       document.getElementById('playerName').innerText = player.name;
       document.getElementById('address').innerText = player.address;
