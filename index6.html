@@ -2,46 +2,92 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Apple Locations Globe with Color-Coded Connections</title>
+  <title>Modular Industry Globe with Partners</title>
   <style>
-    body { margin: 0; overflow: hidden; }
+    body { margin: 0; overflow: hidden; font-family: Arial; }
     #globeViz { width: 100vw; height: 100vh; }
+    #infoPanel {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      width: 250px;
+      display: none;
+    }
+    #infoPanel h3 { margin-top: 0; }
+    #infoPanel ul { padding-left: 20px; }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
 </head>
 <body>
   <div id="globeViz"></div>
+  <div id="infoPanel">
+    <h3 id="playerName">Player</h3>
+    <p><b>Address:</b> <span id="address"></span></p>
+    <p><b>Activity:</b> <span id="activity"></span></p>
+    <p><b>Status:</b> <span id="status"></span></p>
+    <p><b>Works With:</b></p>
+    <ul id="worksWithList"></ul>
+  </div>
   <script>
-    // Apple locations with roles and addresses
     const points = [
-      { name: "Apple HQ", lat: 37.332, lng: -122.011, address: "1 Apple Park Way, Cupertino, CA", role: "Headquarters" },
-      { name: "New York", lat: 40.741, lng: -73.989, address: "Apple Fifth Avenue, 767 5th Ave, New York, NY", role: "Main Sales" },
-      { name: "Shanghai", lat: 31.222, lng: 121.458, address: "Building 6, Block C, 88 Maji Road, Shanghai, China", role: "Manufacturer" },
-      { name: "Austin", lat: 30.267, lng: -97.743, address: "12801 Delcour Dr, Austin, TX", role: "Office/Partner" },
-      { name: "Cork", lat: 51.897, lng: -8.471, address: "Hollyhill, Cork, Ireland", role: "Office/Partner" }
+      // Assembly (Toronto)
+      { name: "Assembly Corp.", lat: 43.645, lng: -79.382, address: "Toronto, ON", activity: "Panelized Wood Builder", status: "Headquarters" },
+      // Lindbäcks (Sweden)
+      { name: "Lindbäcks Group", lat: 65.483, lng: 21.558, address: "Piteå, Sweden", activity: "Factory-Built Housing", status: "Headquarters" },
+      // Example partners for Lindbäcks
+      { name: "Randek AB", lat: 56.906, lng: 12.452, address: "Falkenberg, Sweden", activity: "Modular Manufacturer", status: "Partner" },
+      { name: "Paradigm Building Solutions Ltd.", lat: 51.140, lng: -120.117, address: "Louis Creek, BC", activity: "Modular Developer", status: "Partner" },
+      // Your modular firms (competitors, no partners among themselves)
+      { name: "ORCA LGS", lat: 49.687, lng: -124.994, address: "Courtenay, BC", activity: "Modular Manufacturer", status: "Headquarters" },
+      { name: "TASU", lat: 49.701, lng: -123.156, address: "Squamish, BC", activity: "Modular Developer", status: "Headquarters" },
+      { name: "BLUE COLLAR GROUP", lat: 52.978, lng: -122.493, address: "Quesnel, BC", activity: "Modular Builder", status: "Headquarters" },
+      { name: "Stack Modular", lat: 49.282, lng: -123.108, address: "Vancouver, BC", activity: "Modular Manufacturer", status: "Headquarters" },
+      { name: "Freeport Industries", lat: 49.166, lng: -123.933, address: "Nanaimo, BC", activity: "Modular Manufacturer", status: "Headquarters" },
+      { name: "NUQO Modular", lat: 49.282, lng: -123.108, address: "Vancouver, BC", activity: "Modular Manufacturer", status: "Headquarters" },
+      { name: "Bison Modular", lat: 50.062, lng: -96.516, address: "Beausejour, MB", activity: "Modular Manufacturer", status: "Headquarters" }
     ];
 
-    // Define arc types and their colors
-    const arcTypes = {
-      "HQ to Sales": "#ff7f0e", // Orange
-      "HQ to Manufacturer": "#2ca02c", // Green
-      "HQ to Office/Partner": "#1f77b4", // Blue
-      "Office/Partner to Manufacturer": "#9467bd" // Purple (example of another relation)
+    const partners = {
+      "Assembly Corp.": ["Lindbäcks Group"],
+      "Lindbäcks Group": ["Assembly Corp.", "Randek AB", "Paradigm Building Solutions Ltd."],
+      // No partners among the other firms (they are competitors)
     };
 
-    // Create arcs with different colors for each relation type
-    const arcs = [
-      // HQ to Main Sales
-      { startLat: 37.332, startLng: -122.011, endLat: 40.741, endLng: -73.989, type: "HQ to Sales" },
-      // HQ to Manufacturer
-      { startLat: 37.332, startLng: -122.011, endLat: 31.222, endLng: 121.458, type: "HQ to Manufacturer" },
-      // HQ to Office/Partner (Austin)
-      { startLat: 37.332, startLng: -122.011, endLat: 30.267, endLng: -97.743, type: "HQ to Office/Partner" },
-      // HQ to Office/Partner (Cork)
-      { startLat: 37.332, startLng: -122.011, endLat: 51.897, endLng: -8.471, type: "HQ to Office/Partner" },
-      // Example: Office/Partner to Manufacturer (optional)
-      // { startLat: 30.267, startLng: -97.743, endLat: 31.222, endLng: 121.458, type: "Office/Partner to Manufacturer" }
-    ];
+    const arcTypes = {
+      "Builder to Manufacturer": "#1f77b4",   // Blue
+      "Manufacturer to Manufacturer": "#ff7f0e", // Orange
+      "Manufacturer to Developer": "#2ca02c",    // Green
+    };
+
+    const arcs = [];
+    points.forEach(source => {
+      partners[source.name]?.forEach(targetName => {
+        const target = points.find(p => p.name === targetName);
+        if (target) {
+          let type;
+          if (source.activity.includes("Builder") && target.activity.includes("Manufacturer")) {
+            type = "Builder to Manufacturer";
+          } else if (source.activity.includes("Manufacturer") && target.activity.includes("Manufacturer")) {
+            type = "Manufacturer to Manufacturer";
+          } else if (source.activity.includes("Manufacturer") && target.activity.includes("Developer")) {
+            type = "Manufacturer to Developer";
+          } else {
+            type = "Builder to Manufacturer"; // Fallback
+          }
+          arcs.push({
+            startLat: source.lat,
+            startLng: source.lng,
+            endLat: target.lat,
+            endLng: target.lng,
+            type: type
+          });
+        }
+      });
+    });
 
     // Initialize the globe
     const globe = Globe()
@@ -49,8 +95,8 @@
       .pointsData(points)
       .pointLat(d => d.lat)
       .pointLng(d => d.lng)
-      .pointLabel(d => `${d.name}\n\n• Address: ${d.address}\n• Role: ${d.role}`)
-      .pointColor(() => '#bbb') // Light gray dot
+      .pointLabel(d => `${d.name}\n\n• Address: ${d.address}\n• Activity: ${d.activity}\n• Status: ${d.status}`)
+      .pointColor(() => '#bbb')
       .pointAltitude(0)
       .pointRadius(0.2)
       .arcsData(arcs)
@@ -66,6 +112,22 @@
       .labelSize(0.3)
       .labelDotRadius(0.2)
       .labelColor(() => 'white');
+
+    // Optional: Info panel for more details (not used by default in globe.gl, but here for reference)
+    function showPlayerInfo(player) {
+      document.getElementById('playerName').innerText = player.name;
+      document.getElementById('address').innerText = player.address;
+      document.getElementById('activity').innerText = player.activity;
+      document.getElementById('status').innerText = player.status;
+      const worksWithList = document.getElementById('worksWithList');
+      worksWithList.innerHTML = '';
+      (partners[player.name] || []).forEach(name => {
+        const li = document.createElement('li');
+        li.textContent = name;
+        worksWithList.appendChild(li);
+      });
+      document.getElementById('infoPanel').style.display = 'block';
+    }
   </script>
 </body>
 </html>
