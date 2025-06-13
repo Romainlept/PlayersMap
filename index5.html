@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Minimal globe.gl format example</title>
+  <title>Globe with Always-Visible Labels and Hover Info</title>
   <style>
     body { margin: 0; overflow: hidden; }
     #globeViz { width: 100vw; height: 100vh; }
@@ -12,10 +12,24 @@
 <body>
   <div id="globeViz"></div>
   <script>
-    // Minimal data: two points and one arc
+    // Example data with extra info for hover
     const points = [
-      { name: "Name 1", lat: 40, lng: -70 },
-      { name: "Name 2", lat: 30, lng: 100 }
+      {
+        name: "Name 1",
+        lat: 40,
+        lng: -70,
+        address: "Address 1",
+        activity: "Activity 1",
+        status: "Status 1"
+      },
+      {
+        name: "Name 2",
+        lat: 30,
+        lng: 100,
+        address: "Address 2",
+        activity: "Activity 2",
+        status: "Status 2"
+      }
     ];
     const arcs = [
       { startLat: 40, startLng: -70, endLat: 30, endLng: 100 }
@@ -27,7 +41,7 @@
       .pointsData(points)
       .pointLat(d => d.lat)
       .pointLng(d => d.lng)
-      .pointLabel(d => d.name)
+      .pointLabel(d => `${d.name}\nAddress: ${d.address}\nActivity: ${d.activity}\nStatus: ${d.status}`)
       .pointColor(() => 'red')
       .pointAltitude(0.1)
       .pointRadius(0.2)
@@ -35,7 +49,7 @@
       .arcColor(() => 'white')
       (document.getElementById('globeViz'));
 
-    // Add labels for the points (will be controlled by zoom)
+    // Always show the name as a label (not affected by zoom)
     globe.labelsData(points)
       .labelLat(d => d.lat)
       .labelLng(d => d.lng)
@@ -44,23 +58,23 @@
       .labelDotRadius(0.2)
       .labelColor(() => 'white');
 
-    // Track zoom state and update labels
-    let isZoomedIn = false;
+    // Optional: Hide labels on zoom out (comment out to always show)
+    /*
+    let isZoomedIn = true;
     globe.onZoom(({ zoom }) => {
       if (zoom > 0.7) {
-        // Zoomed in: show labels
         if (!isZoomedIn) {
           globe.labelsData(points);
           isZoomedIn = true;
         }
       } else {
-        // Zoomed out: hide labels
         if (isZoomedIn) {
           globe.labelsData([]);
           isZoomedIn = false;
         }
       }
     });
+    */
   </script>
 </body>
 </html>
