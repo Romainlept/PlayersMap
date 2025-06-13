@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Globe with Always-Visible Labels and Dot Markers</title>
+  <title>Apple Locations Globe with Color-Coded Connections</title>
   <style>
     body { margin: 0; overflow: hidden; }
     #globeViz { width: 100vw; height: 100vh; }
@@ -12,34 +12,35 @@
 <body>
   <div id="globeViz"></div>
   <script>
+    // Apple locations with roles and addresses
     const points = [
-      {
-        name: "Name 1",
-        lat: 40,
-        lng: -70,
-        address: "Address 1",
-        activity: "Activity 1",
-        status: "Potential Partner"
-      },
-      {
-        name: "Name 2",
-        lat: 30,
-        lng: 100,
-        address: "Address 2",
-        activity: "Activity 2",
-        status: "Potential Target"
-      },
-      {
-        name: "Name 3",
-        lat: -20,
-        lng: 40,
-        address: "Address 3",
-        activity: "Activity 3",
-        status: "Potential Partner"
-      }
+      { name: "Apple HQ", lat: 37.332, lng: -122.011, address: "1 Apple Park Way, Cupertino, CA", role: "Headquarters" },
+      { name: "New York", lat: 40.741, lng: -73.989, address: "Apple Fifth Avenue, 767 5th Ave, New York, NY", role: "Main Sales" },
+      { name: "Shanghai", lat: 31.222, lng: 121.458, address: "Building 6, Block C, 88 Maji Road, Shanghai, China", role: "Manufacturer" },
+      { name: "Austin", lat: 30.267, lng: -97.743, address: "12801 Delcour Dr, Austin, TX", role: "Office/Partner" },
+      { name: "Cork", lat: 51.897, lng: -8.471, address: "Hollyhill, Cork, Ireland", role: "Office/Partner" }
     ];
+
+    // Define arc types and their colors
+    const arcTypes = {
+      "HQ to Sales": "#ff7f0e", // Orange
+      "HQ to Manufacturer": "#2ca02c", // Green
+      "HQ to Office/Partner": "#1f77b4", // Blue
+      "Office/Partner to Manufacturer": "#9467bd" // Purple (example of another relation)
+    };
+
+    // Create arcs with different colors for each relation type
     const arcs = [
-      { startLat: 40, startLng: -70, endLat: 30, endLng: 100 }
+      // HQ to Main Sales
+      { startLat: 37.332, startLng: -122.011, endLat: 40.741, endLng: -73.989, type: "HQ to Sales" },
+      // HQ to Manufacturer
+      { startLat: 37.332, startLng: -122.011, endLat: 31.222, endLng: 121.458, type: "HQ to Manufacturer" },
+      // HQ to Office/Partner (Austin)
+      { startLat: 37.332, startLng: -122.011, endLat: 30.267, endLng: -97.743, type: "HQ to Office/Partner" },
+      // HQ to Office/Partner (Cork)
+      { startLat: 37.332, startLng: -122.011, endLat: 51.897, endLng: -8.471, type: "HQ to Office/Partner" },
+      // Example: Office/Partner to Manufacturer (optional)
+      // { startLat: 30.267, startLng: -97.743, endLat: 31.222, endLng: 121.458, type: "Office/Partner to Manufacturer" }
     ];
 
     // Initialize the globe
@@ -48,13 +49,13 @@
       .pointsData(points)
       .pointLat(d => d.lat)
       .pointLng(d => d.lng)
-      // Tooltip with info as a list (using \n for new lines)
-      .pointLabel(d => `${d.name}\n\n• Address: ${d.address}\n• Activity: ${d.activity}\n• Status: ${d.status}`)
-      .pointColor(() => '#bbb') // Light gray dot (not red, not tall)
-      .pointAltitude(0) // On surface
-      .pointRadius(0.2) // Small dot
+      .pointLabel(d => `${d.name}\n\n• Address: ${d.address}\n• Role: ${d.role}`)
+      .pointColor(() => '#bbb') // Light gray dot
+      .pointAltitude(0)
+      .pointRadius(0.2)
       .arcsData(arcs)
-      .arcColor(() => 'white')
+      .arcColor(d => arcTypes[d.type])
+      .arcLabel(d => d.type)
       (document.getElementById('globeViz'));
 
     // Always show the name as a label
