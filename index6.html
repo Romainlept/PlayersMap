@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Globe with Always-Visible Labels and Dot Markers</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    #globeViz { width: 100vw; height: 100vh; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
+</head>
+<body>
+  <div id="globeViz"></div>
+  <script>
+    const points = [
+      {
+        name: "Name 1",
+        lat: 40,
+        lng: -70,
+        address: "Address 1",
+        activity: "Activity 1",
+        status: "Potential Partner"
+      },
+      {
+        name: "Name 2",
+        lat: 30,
+        lng: 100,
+        address: "Address 2",
+        activity: "Activity 2",
+        status: "Potential Target"
+      },
+      {
+        name: "Name 3",
+        lat: -20,
+        lng: 40,
+        address: "Address 3",
+        activity: "Activity 3",
+        status: "Potential Partner"
+      }
+    ];
+    const arcs = [
+      { startLat: 40, startLng: -70, endLat: 30, endLng: 100 }
+    ];
+
+    // Initialize the globe
+    const globe = Globe()
+      .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
+      .pointsData(points)
+      .pointLat(d => d.lat)
+      .pointLng(d => d.lng)
+      // Tooltip with info as a list (using \n for new lines)
+      .pointLabel(d => `${d.name}\n\n• Address: ${d.address}\n• Activity: ${d.activity}\n• Status: ${d.status}`)
+      .pointColor(() => '#bbb') // Light gray dot (not red, not tall)
+      .pointAltitude(0) // On surface
+      .pointRadius(0.2) // Small dot
+      .arcsData(arcs)
+      .arcColor(() => 'white')
+      (document.getElementById('globeViz'));
+
+    // Always show the name as a label
+    globe.labelsData(points)
+      .labelLat(d => d.lat)
+      .labelLng(d => d.lng)
+      .labelText(d => d.name)
+      .labelSize(0.3)
+      .labelDotRadius(0.2)
+      .labelColor(() => 'white');
+  </script>
+</body>
+</html>
