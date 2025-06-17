@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mapbox Modular Network with Automatic Network Coloring</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    .map-overlay {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      background: #fff;
+      padding: 10px;
+      border-radius: 3px;
+      font: 12px/20px sans-serif;
+      max-height: 400px;
+      overflow-y: auto;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      display: none;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="map-overlay" id="info"></div>
+
+  <script>
+    // Replace with your Mapbox access token
+    mapboxgl.accessToken = 'YOUR_MAPBOX_ACCESS_TOKEN';
+
+    // Your Google Sheets CSV links
+    const pointsUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQaJd0h7-isjNPXFKJfzEMKJZ7bOPsqrfESDs7hj9skKws-SXMe0Z5alZXeJJHf8H18lkNwlAd6nwzL/pub?gid=0&single=true&output=csv';
+    const partnersUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQaJd0h7-isjNPXFKJfzEMKJZ7bOPsqrfESDs7hj9skKws-SXMe0Z5alZXeJJHf8H18lkNwlAd6nwzL/pub?gid=1922727520&single=true&output=csv';
+
+    let pointsData = [];
+    let partnersData = [];
+    const infoOverlay = document.getElementById('info');
+
+    // Helper: Parse a string to float, or return undefined if invalid
+    function parseFloatOrUndefined(str) {
+      const num = parseFloat(str);
+      return isNaN(num) ? undefined : num;
+    }
+
+    // Helper: Generate a random color
+    function randomColor() {
+      return `#${Math.floor(Math.random()*16777215).toString(16).padStart(6, '0')}`;
+    }
+
+    // Load points data
+    Papa.parse(pointsUrl, {
+      download: true,
+      header: true,
+      complete: function(results) {
+        pointsData = results.data
+          .filter(d => d.name && d.lat && d.lng)
+          .map(d => ({
+            ...d,
+            lat: parseFloatOrUndefined(d.lat),
+            lng: parseFloatOrUndefined(d.lng)
+          }))
+          .filter(d => d.lat !== undefined && d.lng !== undefined);
+        console.log("Parsed points data:", pointsData);
+
+        // Load partners data after points are loaded
+        Papa.parse(partnersUrl, {
+          download: true,
+          header: true,
+          complete: function(results) {
+            partnersData = results.data
+              .filter(d => d.source && d.target);
+            console.log("Parsed partners data:", partnersData);
+
+            // Both datasets are loaded, now build the map
+            buildMap();
+          }
+        });
+      }
+    });
+
+    function buildMap() {
+      // Build a graph of connections
+      const graph = {};
+      const nameToId = {};
+      const idToName = pointsData.map((p, i) => {
+        nameToId[p.name] = i;
+        return p.name;
+      });
+
+      pointsData.forEach(p => {
+        graph[nameToId[p.name]] = [];
+      });
+
+      partnersData.forEach(p => {
+        if (nameToId[p.source] !== undefined && nameToId[p.target] !== undefined) {
+          graph[nameToId[p.source]].push(nameToId[p.target]);
+          graph[nameToId[p.target]].push(nameToId[p.source]);
+        }
+      });
+
+      // Assign network (connected component) IDs using BFS
+      const visited = {};
+      let networkId = 0;
+      const nodeToNetwork = {};
+      pointsData.forEach((p, i) => {
+        if (!visited[i]) {
+          const queue = [i];
+          visited[i] = true;
+          nodeToNetwork[i] = networkId;
+          while (queue.length) {
+            const current = queue.shift();
+            for (const neighbor of graph[current] || []) {
+              if (!visited[neighbor]) {
+                visited[neighbor] = true;
+                nodeToNetwork[neighbor] = networkId;
+                queue.push(neighbor);
+              }
+            }
+          }
+          networkId++;
+        }
+      });
+
+      // Assign network to each point
+      pointsData.forEach((p, i) => {
+        p.network = nodeToNetwork[i];
+      });
+
+      // Generate a random color for each network
+      const networkColors = {};
+      for (let i = 0; i < networkId; i++) {
+        networkColors[i] = randomColor();
+      }
+      console.log("Network colors:", networkColors);
+
+      // Convert points to GeoJSON
+      const pointsGeoJSON = {
+        type: 'FeatureCollection',
+        features: pointsData.map((d, i) => ({
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [d.lng, d.lat]
+          },
+          properties: {
+            name: d.name,
+            address: d.address,
+            activity: d.activity,
+            status: d.status,
+            network: d.network
+          }
+        }))
+      };
+
+      // Build arcs (lines) between partners that exist in pointsData
+      const arcsGeoJSON = {
+        type: 'FeatureCollection',
+        features: partnersData
+          .map(partner => {
+            const source = pointsData.find(p => p.name === partner.source);
+            const target = pointsData.find(p => p.name === partner.target);
+            if (source && target) {
+              return {
+                type: 'Feature',
+                geometry: {
+                  type: 'LineString',
+                  coordinates: [
+                    [source.lng, source.lat],
+                    [target.lng, target.lat]
+                  ]
+                },
+                properties: {
+                  network: source.network // Use source network for color
+                }
+              };
+            }
+            return null;
+          })
+          .filter(Boolean)
+      };
+
+      // Initialize the map
+      const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/light-v11',
+        center: [-98, 40], // Center on North America
+        zoom: 3
+      });
+
+      map.on('load', () => {
+        // Add points source and layer (smaller dots, colored by network)
+        map.addSource('players', {
+          type: 'geojson',
+          data: pointsGeoJSON
+        });
+        map.addLayer({
+          id: 'players',
+          type: 'circle',
+          source: 'players',
+          paint: {
+            'circle-radius': 5, // Smaller dots
+            'circle-color': [
+              'case',
+              ...Object.entries(networkColors).flatMap(([id, color]) => [
+                ['==', ['get', 'network'], parseInt(id)], color
+              ]),
+              '#888' // default
+            ],
+            'circle-stroke-width': 1,
+            'circle-stroke-color': '#fff'
+          }
+        });
+
+        // Add labels (player names)
+        map.addLayer({
+          id: 'player-labels',
+          type: 'symbol',
+          source: 'players',
+          layout: {
+            'text-field': ['get', 'name'],
+            'text-size': 12,
+            'text-offset': [0, 1]
+          },
+          paint: {
+            'text-color': '#000',
+            'text-halo-color': '#fff',
+            'text-halo-width': 1
+          }
+        });
+
+        // Add arcs (connections, colored by network)
+        if (arcsGeoJSON.features.length > 0) {
+          map.addSource('arcs', {
+            type: 'geojson',
+            data: arcsGeoJSON
+          });
+          map.addLayer({
+            id: 'arcs',
+            type: 'line',
+            source: 'arcs',
+            paint: {
+              'line-color': [
+                'case',
+                ...Object.entries(networkColors).flatMap(([id, color]) => [
+                  ['==', ['get', 'network'], parseInt(id)], color
+                ]),
+                '#888' // default
+              ],
+              'line-width': 2
+            }
+          });
+        }
+
+        // Show info overlay on hover
+        map.on('mouseenter', 'players', (e) => {
+          map.getCanvas().style.cursor = 'pointer';
+          const feature = e.features[0];
+          const playerName = feature.properties.name;
+
+          // Find all partners of this player
+          const partners = partnersData
+            .filter(p => p.source === playerName)
+            .map(p => {
+              const partner = pointsData.find(pp => pp.name === p.target);
+              return partner ? `${partner.name} (${partner.activity})` : null;
+            })
+            .filter(Boolean);
+
+          // Build the info content
+          let info = `
+            <strong>${playerName}</strong><br>
+            Address: ${feature.properties.address}<br>
+            Activity: ${feature.properties.activity}<br>
+            Status: ${feature.properties.status}<br>
+            <strong>Partners:</strong><br>
+            ${partners.length ? partners.join('<br>') : 'None'}
+          `;
+
+          infoOverlay.innerHTML = info;
+          infoOverlay.style.display = 'block';
+        });
+
+        map.on('mouseleave', 'players', () => {
+          map.getCanvas().style.cursor = '';
+          infoOverlay.style.display = 'none';
+        });
+      });
+    }
+  </script>
+</body>
+</html>
