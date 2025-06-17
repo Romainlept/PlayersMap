@@ -2,134 +2,124 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Mapbox Feature Interactions</title>
+  <title>Mapbox Arcs Between Points</title>
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
   <style>
     body { margin: 0; padding: 0; }
     #map { position: absolute; top: 0; bottom: 0; width: 100%; }
     .map-overlay {
-      display: none;
-      font: 12px/20px sans-serif;
-      padding: 10px;
       position: absolute;
-      right: 0;
-      top: 0;
-      width: 230px;
-      overflow: hidden;
-      white-space: nowrap;
-    }
-    .map-overlay-inner {
+      right: 10px;
+      top: 10px;
       background: #fff;
       padding: 10px;
       border-radius: 3px;
+      font: 12px/20px sans-serif;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
-  <div class="map-overlay right" id="properties"></div>
+  <div class="map-overlay" id="info"></div>
 
   <script>
-    // Replace with your Mapbox access token
-    mapboxgl.accessToken = 'pk.eyJ1Ijoicm9tYWlubGVwcmV0cmUiLCJhIjoiY21jMHhvc3VkMDdpMjJscHNqZW1weTc4cyJ9.3SrQFYmnFCs2M7gTO75BBA';
+    mapboxgl.accessToken = 'pk.eyJ1Ijoicm9tYWlubGVwcmV0cmUiLCJhIjoiY21jMHhvc3VkMDdpMjJscHNqZW1weTc4cyJ9.3SrQFYmnFCs2M7gTO75BBA'; // Replace with your token
+
     const map = new mapboxgl.Map({
       container: 'map',
+      style: 'mapbox://styles/mapbox/light-v11',
       center: [-98, 38.88],
-      maxZoom: 5,
-      minZoom: 1,
-      zoom: 3,
-      style: 'mapbox://styles/mapbox/standard'
+      zoom: 4
     });
 
-    const card = document.getElementById('properties');
-    const showCard = (feature) => {
-      card.innerHTML = `
-        <div class="map-overlay-inner">
-          <code>${feature.properties.name}</code><hr>
-          <ul>
-            ${Object.entries(feature.properties)
-              .map(([key, value]) => `<li><b>${key}</b>: ${value}</li>`)
-              .join('')}
-          </ul>
-        </div>`;
-      card.style.display = 'block';
+    // Example custom points (replace with your data)
+    const customPoints = [
+      { name: "Point A", coordinates: [-104.99, 39.74] }, // Denver, CO
+      { name: "Point B", coordinates: [-97.52, 35.47] },  // Oklahoma City, OK
+      { name: "Point C", coordinates: [-95.36, 29.76] },  // Houston, TX
+      { name: "Point D", coordinates: [-87.62, 41.88] }   // Chicago, IL
+    ];
+
+    // Select which points to connect (for example, A-B and C-D)
+    const connections = [
+      { from: "Point A", to: "Point B" },
+      { from: "Point C", to: "Point D" }
+    ];
+
+    // Prepare GeoJSON for points and arcs
+    const pointsGeoJSON = {
+      type: "FeatureCollection",
+      features: customPoints.map(p => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: p.coordinates },
+        properties: { name: p.name }
+      }))
     };
 
-    map.on('style.load', () => {
-      // Add your data source and layer here
-      map.addSource('airports', {
-        'type': 'vector',
-        'url': 'mapbox://mapbox.04w69w5j',
-        'promoteId': 'abbrev'
-      });
+    // Prepare GeoJSON for arcs (lines)
+    const arcsGeoJSON = {
+      type: "FeatureCollection",
+      features: connections.map(conn => {
+        const from = customPoints.find(p => p.name === conn.from);
+        const to = customPoints.find(p => p.name === conn.to);
+        if (!from || !to) return null;
 
+        // For a simple straight line:
+        // const line = {
+        //   type: "Feature",
+        //   geometry: {
+        //     type: "LineString",
+        //     coordinates: [from.coordinates, to.coordinates]
+        //   }
+        // };
+
+        // For a smooth arc (great-circle), use Turf.js:
+        const line = turf.greatCircle(
+          turf.point(from.coordinates),
+          turf.point(to.coordinates)
+        );
+        return line;
+      }).filter(Boolean)
+    };
+
+    map.on('load', () => {
+      // Add points source and layer
+      map.addSource('points', {
+        type: "geojson",
+        data: pointsGeoJSON
+      });
       map.addLayer({
-        'id': 'airport',
-        'source': 'airports',
-        'source-layer': 'ne_10m_airports',
-        'type': 'circle',
-        'paint': {
-          'circle-color': [
-            'case',
-            ['boolean', ['feature-state', 'selected'], false],
-            '#f00',
-            '#4264fb'
-          ],
-          'circle-radius': [
-            'case',
-            ['boolean', ['feature-state', 'selected'], false],
-            6,
-            ['boolean', ['feature-state', 'highlight'], false],
-            6,
-            4
-          ],
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#ffffff'
+        id: "points",
+        type: "circle",
+        source: "points",
+        paint: {
+          "circle-radius": 8,
+          "circle-color": "#007cbf"
         }
       });
 
-      let selectedFeature = null;
-
-      // Click on airport layer to select and show card
-      map.on('click', 'airport', (e) => {
-        if (selectedFeature) {
-          map.setFeatureState({
-            source: 'airports',
-            sourceLayer: 'ne_10m_airports',
-            id: selectedFeature.id
-          }, { selected: false });
-        }
-        selectedFeature = e.features[0];
-        map.setFeatureState({
-          source: 'airports',
-          sourceLayer: 'ne_10m_airports',
-          id: selectedFeature.id
-        }, { selected: true });
-        showCard(selectedFeature);
+      // Add arcs source and layer
+      map.addSource('arcs', {
+        type: "geojson",
+        data: arcsGeoJSON
       });
-
-      // Click on map to deselect
-      map.on('click', (e) => {
-        if (selectedFeature) {
-          map.setFeatureState({
-            source: 'airports',
-            sourceLayer: 'ne_10m_airports',
-            id: selectedFeature.id
-          }, { selected: false });
-          selectedFeature = null;
-          card.style.display = 'none';
+      map.addLayer({
+        id: "arcs",
+        type: "line",
+        source: "arcs",
+        paint: {
+          "line-color": "#ff7f0e",
+          "line-width": 2
         }
       });
 
-      // Hover to highlight
-      map.on('mouseenter', 'airport', () => {
-        map.getCanvas().style.cursor = 'pointer';
-      });
-
-      map.on('mouseleave', 'airport', () => {
-        map.getCanvas().style.cursor = '';
+      // Show point info on click
+      map.on('click', 'points', (e) => {
+        const name = e.features[0].properties.name;
+        document.getElementById('info').innerHTML = `<strong>${name}</strong>`;
       });
     });
   </script>
