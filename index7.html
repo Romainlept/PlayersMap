@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Modular Industry Globe with Manual Refresh</title>
+  <meta charset="UTF-8" />
+  <title>Modular Industry Globe with Hover Info Panel</title>
   <style>
-    body { margin: 0; overflow: hidden; font-family: Arial; }
+    body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; }
     #globeViz { width: 100vw; height: 100vh; }
     #infoPanel {
       position: absolute;
@@ -14,11 +14,21 @@
       color: white;
       padding: 15px;
       border-radius: 10px;
-      width: 250px;
+      width: 280px;
+      max-height: 400px;
+      overflow-y: auto;
       display: none;
+      pointer-events: none; /* Prevent blocking globe interaction */
+      transition: opacity 0.3s ease;
+      opacity: 0;
+    }
+    #infoPanel.visible {
+      display: block;
+      opacity: 1;
+      pointer-events: auto;
     }
     #infoPanel h3 { margin-top: 0; }
-    #infoPanel ul { padding-left: 20px; }
+    #infoPanel ul { padding-left: 20px; margin: 0; }
     #refreshButton {
       position: absolute;
       top: 10px;
@@ -29,6 +39,7 @@
       border: 1px solid #ccc;
       border-radius: 4px;
       cursor: pointer;
+      user-select: none;
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
@@ -37,19 +48,55 @@
 <body>
   <button id="refreshButton">Refresh Data</button>
   <div id="globeViz"></div>
-  <div id="infoPanel">
+  <div id="infoPanel" role="region" aria-live="polite" aria-atomic="true">
     <h3 id="playerName">Player</h3>
-    <p><b>Address:</b> <span id="address"></span></p>
-    <p><b>Activity:</b> <span id="activity"></span></p>
-    <p><b>Status:</b> <span id="status"></span></p>
-    <p><b>Works With:</b></p>
+    <p><strong>Address:</strong> <span id="address"></span></p>
+    <p><strong>Activity:</strong> <span id="activity"></span></p>
+    <p><strong>Status:</strong> <span id="status"></span></p>
+    <p><strong>Works With:</strong></p>
     <ul id="worksWithList"></ul>
   </div>
+
   <script>
     const pointsSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQaJd0h7-isjNPXFKJfzEMKJZ7bOPsqrfESDs7hj9skKws-SXMe0Z5alZXeJJHf8H18lkNwlAd6nwzL/pub?gid=0&single=true&output=csv';
     const partnersSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQaJd0h7-isjNPXFKJfzEMKJZ7bOPsqrfESDs7hj9skKws-SXMe0Z5alZXeJJHf8H18lkNwlAd6nwzL/pub?gid=1922727520&single=true&output=csv';
+
     let globe;
-    let points = []; // Store points globally for easy lookup
+    let points = [];
+    let partners = {};
+
+    // Elements for info panel
+    const infoPanel = document.getElementById('infoPanel');
+    const playerNameEl = document.getElementById('playerName');
+    const addressEl = document.getElementById('address');
+    const activityEl = document.getElementById('activity');
+    const statusEl = document.getElementById('status');
+    const worksWithListEl = document.getElementById('worksWithList');
+
+    function showInfoPanel(point) {
+      playerNameEl.textContent = point.name;
+      addressEl.textContent = point.address;
+      activityEl.textContent = point.activity;
+      statusEl.textContent = point.status;
+
+      // Clear previous list
+      worksWithListEl.innerHTML = '';
+
+      // List partners with their activities
+      (partners[point.name] || []).forEach(partnerName => {
+        const partnerPoint = points.find(p => p.name === partnerName);
+        const partnerActivity = partnerPoint ? partnerPoint.activity : 'Unknown';
+        const li = document.createElement('li');
+        li.textContent = `${partnerName} (${partnerActivity})`;
+        worksWithListEl.appendChild(li);
+      });
+
+      infoPanel.classList.add('visible');
+    }
+
+    function hideInfoPanel() {
+      infoPanel.classList.remove('visible');
+    }
 
     function loadDataAndUpdateGlobe() {
       // Load points
@@ -71,14 +118,13 @@
             download: true,
             header: true,
             complete: function(partnersResults) {
-              // Build partners object: { source: [target1, target2, ...] }
-              const partners = {};
+              partners = {};
               partnersResults.data.forEach(row => {
                 if (!partners[row.source]) partners[row.source] = [];
                 partners[row.source].push(row.target);
               });
 
-              // Build arcs between points
+              // Build arcs
               const arcs = [];
               points.forEach(source => {
                 (partners[source.name] || []).forEach(targetName => {
@@ -94,7 +140,6 @@
                 });
               });
 
-              // Update or create the globe
               if (globe) {
                 globe.pointsData(points)
                   .arcsData(arcs)
@@ -110,11 +155,11 @@
                   .pointAltitude(0)
                   .pointRadius(0.2)
                   .arcsData(arcs)
-                  .arcColor(() => '#ff7f0e') // Orange arcs
+                  .arcColor(() => '#ff7f0e')
                   .arcStroke(0.2)
-                  .arcDashLength(0) // No dash
-                  .arcDashGap(0)   // No gap
-                  .arcDashAnimateTime(0) // No animation
+                  .arcDashLength(0)
+                  .arcDashGap(0)
+                  .arcDashAnimateTime(0)
                   .labelsData(points)
                   .labelLat('lat')
                   .labelLng('lng')
@@ -122,24 +167,27 @@
                   .labelSize(0.3)
                   .labelDotRadius(0.2)
                   .labelColor(() => 'white')
+                  // Adjust label resolution and altitude to reduce overlap
+                  .labelResolution(2)  // Higher number = fewer labels but less overlap
+                  .labelAltitude(0.01) // Slightly raised labels to avoid z-fighting
                   (document.getElementById('globeViz'));
 
-                // Info panel for more details
-                globe.onPointClick(point => {
-                  document.getElementById('playerName').innerText = point.name;
-                  document.getElementById('address').innerText = point.address;
-                  document.getElementById('activity').innerText = point.activity;
-                  document.getElementById('status').innerText = point.status;
-                  document.getElementById('worksWithList').innerHTML = '';
-                  (partners[point.name] || []).forEach(name => {
-                    const li = document.createElement('li');
-                    // Find the partner's activity
-                    const partnerPoint = points.find(p => p.name === name);
-                    const partnerActivity = partnerPoint ? partnerPoint.activity : 'Unknown';
-                    li.textContent = `${name} (${partnerActivity})`;
-                    document.getElementById('worksWithList').appendChild(li);
-                  });
-                  document.getElementById('infoPanel').style.display = 'block';
+                // Show info panel on label hover
+                globe.onLabelHover(point => {
+                  if (point) {
+                    showInfoPanel(point);
+                  } else {
+                    hideInfoPanel();
+                  }
+                });
+
+                // Optional: Also show info panel on point hover
+                globe.onPointHover(point => {
+                  if (point) {
+                    showInfoPanel(point);
+                  } else {
+                    hideInfoPanel();
+                  }
                 });
               }
             }
@@ -149,7 +197,9 @@
     }
 
     document.getElementById('refreshButton').addEventListener('click', loadDataAndUpdateGlobe);
-    loadDataAndUpdateGlobe(); // Load data on page load
+
+    // Initial load
+    loadDataAndUpdateGlobe();
   </script>
 </body>
 </html>
