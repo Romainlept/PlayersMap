@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mapbox with Points and Partners</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    .map-overlay {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      background: #fff;
+      padding: 10px;
+      border-radius: 3px;
+      font: 12px/20px sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="map-overlay" id="info"></div>
+
+  <script>
+    mapboxgl.accessToken = 'pk.eyJ1Ijoicm9tYWlubGVwcmV0cmUiLCJhIjoiY21jMHhvc3VkMDdpMjJscHNqZW1weTc4cyJ9.3SrQFYmnFCs2M7gTO75BBA'; // Replace with your token
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/light-v11',
+      center: [-123.1, 49.3], // Example: Vancouver
+      zoom: 4
+    });
+
+    // Your Google Sheets CSV links
+    const pointsUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQaJd0h7-isjNPXFKJfzEMKJZ7bOPsqrfESDs7hj9skKws-SXMe0Z5alZXeJJHf8H18lkNwlAd6nwzL/pub?gid=0&single=true&output=csv';
+    const partnersUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQaJd0h7-isjNPXFKJfzEMKJZ7bOPsqrfESDs7hj9skKws-SXMe0Z5alZXeJJHf8H18lkNwlAd6nwzL/pub?gid=1922727520&single=true&output=csv';
+
+    let pointsData = [];
+    let partnersData = [];
+
+    // Load points data
+    Papa.parse(pointsUrl, {
+      download: true,
+      header: true,
+      complete: function(results) {
+        pointsData = results.data.filter(d => d.lat && d.lng);
+        // Load partners data after points are loaded
+        Papa.parse(partnersUrl, {
+          download: true,
+          header: true,
+          complete: function(results) {
+            partnersData = results.data;
+            // Both datasets are loaded, now build the map
+            buildMap();
+          }
+        });
+      }
+    });
+
+    function buildMap() {
+      // Convert points to GeoJSON
+      const pointsGeoJSON = {
+        type: 'FeatureCollection',
+        features: pointsData.map(d => ({
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [parseFloat(d.lng), parseFloat(d.lat)]
+          },
+          properties: {
+            name: d.name,
+            address: d.address,
+            activity: d.activity,
+            status: d.status
+          }
+        }))
+      };
+
+      // Build arcs (lines) between partners
+      const arcsGeoJSON = {
+        type: 'FeatureCollection',
+        features: partnersData.map(partner => {
+          const source = pointsData.find(p => p.name === partner.source);
+          const target = pointsData.find(p => p.name === partner.target);
+          if (source && target) {
+            return {
+              type: 'Feature',
+              geometry: {
+                type: 'LineString',
+                coordinates: [
+                  [parseFloat(source.lng), parseFloat(source.lat)],
+                  [parseFloat(target.lng), parseFloat(target.lat)]
+                ]
+              }
+            };
+          }
+          return null;
+        }).filter(Boolean)
+      };
+
+      // Add points and arcs to the map
+      map.on('load', () => {
+        // Add points
+        map.addSource('players', {
+          type: 'geojson',
+          data: pointsGeoJSON
+        });
+        map.addLayer({
+          id: 'players',
+          type: 'circle',
+          source: 'players',
+          paint: {
+            'circle-radius': 8,
+            'circle-color': '#007cbf'
+          }
+        });
+
+        // Add arcs
+        map.addSource('arcs', {
+          type: 'geojson',
+          data: arcsGeoJSON
+        });
+        map.addLayer({
+          id: 'arcs',
+          type: 'line',
+          source: 'arcs',
+          paint: {
+            'line-color': '#ff7f0e',
+            'line-width': 2
+          }
+        });
+
+        // Show info on click
+        map.on('click', 'players', (e) => {
+          const feature = e.features[0];
+          document.getElementById('info').innerHTML = `
+            <strong>${feature.properties.name}</strong><br>
+            Address: ${feature.properties.address}<br>
+            Activity: ${feature.properties.activity}<br>
+            Status: ${feature.properties.status}
+          `;
+        });
+      });
+    }
+  </script>
+</body>
+</html>
