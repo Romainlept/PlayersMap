@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Mapbox with Points and Partners</title>
+  <title>Mapbox Modular Network</title>
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.js"></script>
@@ -18,6 +18,11 @@
       padding: 10px;
       border-radius: 3px;
       font: 12px/20px sans-serif;
+      max-height: 400px;
+      overflow-y: auto;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      display: none;
+      z-index: 10;
     }
   </style>
 </head>
@@ -26,13 +31,8 @@
   <div class="map-overlay" id="info"></div>
 
   <script>
-    mapboxgl.accessToken = 'pk.eyJ1Ijoicm9tYWlubGVwcmV0cmUiLCJhIjoiY21jMHhvc3VkMDdpMjJscHNqZW1weTc4cyJ9.3SrQFYmnFCs2M7gTO75BBA'; // Replace with your token
-    const map = new mapboxgl.Map({
-      container: 'map',
-      style: 'mapbox://styles/mapbox/light-v11',
-      center: [-123.1, 49.3], // Example: Vancouver
-      zoom: 4
-    });
+    // Replace with your Mapbox access token
+    mapboxgl.accessToken = 'pk.eyJ1Ijoicm9tYWlubGVwcmV0cmUiLCJhIjoiY21jMHhvc3VkMDdpMjJscHNqZW1weTc4cyJ9.3SrQFYmnFCs2M7gTO75BBA';
 
     // Your Google Sheets CSV links
     const pointsUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQaJd0h7-isjNPXFKJfzEMKJZ7bOPsqrfESDs7hj9skKws-SXMe0Z5alZXeJJHf8H18lkNwlAd6nwzL/pub?gid=0&single=true&output=csv';
@@ -40,19 +40,38 @@
 
     let pointsData = [];
     let partnersData = [];
+    const infoOverlay = document.getElementById('info');
+
+    // Helper: Parse a string to float, or return undefined if invalid
+    function parseFloatOrUndefined(str) {
+      const num = parseFloat(str);
+      return isNaN(num) ? undefined : num;
+    }
 
     // Load points data
     Papa.parse(pointsUrl, {
       download: true,
       header: true,
       complete: function(results) {
-        pointsData = results.data.filter(d => d.lat && d.lng);
+        pointsData = results.data
+          .filter(d => d.name && d.lat && d.lng)
+          .map(d => ({
+            ...d,
+            lat: parseFloatOrUndefined(d.lat),
+            lng: parseFloatOrUndefined(d.lng)
+          }))
+          .filter(d => d.lat !== undefined && d.lng !== undefined);
+        console.log("Parsed points data:", pointsData);
+
         // Load partners data after points are loaded
         Papa.parse(partnersUrl, {
           download: true,
           header: true,
           complete: function(results) {
-            partnersData = results.data;
+            partnersData = results.data
+              .filter(d => d.source && d.target);
+            console.log("Parsed partners data:", partnersData);
+
             // Both datasets are loaded, now build the map
             buildMap();
           }
@@ -68,7 +87,7 @@
           type: 'Feature',
           geometry: {
             type: 'Point',
-            coordinates: [parseFloat(d.lng), parseFloat(d.lat)]
+            coordinates: [d.lng, d.lat]
           },
           properties: {
             name: d.name,
@@ -79,31 +98,41 @@
         }))
       };
 
-      // Build arcs (lines) between partners
+      // Build arcs (lines) between partners that exist in pointsData
       const arcsGeoJSON = {
         type: 'FeatureCollection',
-        features: partnersData.map(partner => {
-          const source = pointsData.find(p => p.name === partner.source);
-          const target = pointsData.find(p => p.name === partner.target);
-          if (source && target) {
-            return {
-              type: 'Feature',
-              geometry: {
-                type: 'LineString',
-                coordinates: [
-                  [parseFloat(source.lng), parseFloat(source.lat)],
-                  [parseFloat(target.lng), parseFloat(target.lat)]
-                ]
-              }
-            };
-          }
-          return null;
-        }).filter(Boolean)
+        features: partnersData
+          .map(partner => {
+            const source = pointsData.find(p => p.name === partner.source);
+            const target = pointsData.find(p => p.name === partner.target);
+            if (source && target) {
+              return {
+                type: 'Feature',
+                geometry: {
+                  type: 'LineString',
+                  coordinates: [
+                    [source.lng, source.lat],
+                    [target.lng, target.lat]
+                  ]
+                }
+              };
+            }
+            return null;
+          })
+          .filter(Boolean)
       };
+      console.log("Arcs GeoJSON:", arcsGeoJSON);
 
-      // Add points and arcs to the map
+      // Initialize the map
+      const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/light-v11',
+        center: [-98, 40], // Center on North America
+        zoom: 3
+      });
+
       map.on('load', () => {
-        // Add points
+        // Add points source and layer (smaller blue dots)
         map.addSource('players', {
           type: 'geojson',
           data: pointsGeoJSON
@@ -113,35 +142,79 @@
           type: 'circle',
           source: 'players',
           paint: {
-            'circle-radius': 8,
-            'circle-color': '#007cbf'
+            'circle-radius': 5, // Smaller dots
+            'circle-color': '#007cbf',
+            'circle-stroke-width': 1,
+            'circle-stroke-color': '#fff'
           }
         });
 
-        // Add arcs
-        map.addSource('arcs', {
-          type: 'geojson',
-          data: arcsGeoJSON
-        });
+        // Add labels (player names)
         map.addLayer({
-          id: 'arcs',
-          type: 'line',
-          source: 'arcs',
+          id: 'player-labels',
+          type: 'symbol',
+          source: 'players',
+          layout: {
+            'text-field': ['get', 'name'],
+            'text-size': 12,
+            'text-offset': [0, 1]
+          },
           paint: {
-            'line-color': '#ff7f0e',
-            'line-width': 2
+            'text-color': '#000',
+            'text-halo-color': '#fff',
+            'text-halo-width': 1
           }
         });
 
-        // Show info on click
-        map.on('click', 'players', (e) => {
+        // Add arcs (connections)
+        if (arcsGeoJSON.features.length > 0) {
+          map.addSource('arcs', {
+            type: 'geojson',
+            data: arcsGeoJSON
+          });
+          map.addLayer({
+            id: 'arcs',
+            type: 'line',
+            source: 'arcs',
+            paint: {
+              'line-color': '#ff7f0e',
+              'line-width': 2
+            }
+          });
+        }
+
+        // Show info overlay on hover
+        map.on('mouseenter', 'players', (e) => {
+          map.getCanvas().style.cursor = 'pointer';
           const feature = e.features[0];
-          document.getElementById('info').innerHTML = `
-            <strong>${feature.properties.name}</strong><br>
+          const playerName = feature.properties.name;
+
+          // Find all partners of this player
+          const partners = partnersData
+            .filter(p => p.source === playerName)
+            .map(p => {
+              const partner = pointsData.find(pp => pp.name === p.target);
+              return partner ? `${partner.name} (${partner.activity})` : null;
+            })
+            .filter(Boolean);
+
+          // Build the info content
+          let info = `
+            <strong>${playerName}</strong><br>
             Address: ${feature.properties.address}<br>
             Activity: ${feature.properties.activity}<br>
-            Status: ${feature.properties.status}
+            Status: ${feature.properties.status}<br>
+            <strong>Partners:</strong><br>
+            ${partners.length ? partners.join('<br>') : 'None'}
           `;
+
+          infoOverlay.innerHTML = info;
+          infoOverlay.style.display = 'block';
+        });
+
+        map.on('mouseleave', 'players', () => {
+          map.getCanvas().style.cursor = '';
+          infoOverlay.style.display = 'none';
         });
       });
     }
