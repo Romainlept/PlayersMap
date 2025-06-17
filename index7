@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Modular Industry Globe: Google Sheet Data</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: Arial; }
+    #globeViz { width: 100vw; height: 100vh; }
+    #infoPanel {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      background: rgba(0,0,0,0.8);
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      width: 250px;
+      display: none;
+    }
+    #infoPanel h3 { margin-top: 0; }
+    #infoPanel ul { padding-left: 20px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/globe.gl"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+</head>
+<body>
+  <div id="globeViz"></div>
+  <div id="infoPanel">
+    <h3 id="playerName">Player</h3>
+    <p><b>Address:</b> <span id="address"></span></p>
+    <p><b>Activity:</b> <span id="activity"></span></p>
+    <p><b>Status:</b> <span id="status"></span></p>
+    <p><b>Works With:</b></p>
+    <ul id="worksWithList"></ul>
+  </div>
+  <script>
+    // Update these with your actual Google Sheet CSV URLs
+    const pointsSheetUrl = 'https://docs.google.com/spreadsheets/d/e/1KvElWNvVY9FDd5JcaJ8blrpLFFp1SDjWal2W5vpHf6M/pub?gid=0&single=true&output=csv';
+    const partnersSheetUrl = 'https://docs.google.com/spreadsheets/d/e/1KvElWNvVY9FDd5JcaJ8blrpLFFp1SDjWal2W5vpHf6M/pub?gid=1&single=true&output=csv';
+
+    // Arc types and colors
+    const arcTypes = {
+      "Core to Manufacturer": "#1f77b4",      // Blue
+      "Manufacturer to Supplier": "#ff7f0e",  // Orange
+      "Supplier to Local Partner": "#2ca02c", // Green
+      "Other": "#9467bd"                      // Purple
+    };
+
+    // Helper function to fetch and parse CSV
+    function fetchCSV(url, callback) {
+      Papa.parse(url, {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+          callback(results.data);
+        }
+      });
+    }
+
+    // Load points and partners, then build the globe
+    Promise.all([
+      new Promise(resolve => fetchCSV(pointsSheetUrl, resolve)),
+      new Promise(resolve => fetchCSV(partnersSheetUrl, resolve))
+    ]).then(([points, partnersRows]) => {
+      // Build the partners object
+      const partners = {};
+      partnersRows.forEach(row => {
+        if (!partners[row.source]) partners[row.source] = [];
+        partners[row.source].push(row.target);
+      });
+
+      // Build the arcs
+      const arcs = [];
+      points.forEach(source => {
+        (partners[source.name] || []).forEach(targetName => {
+          const target = points.find(p => p.name === targetName);
+          if (target) {
+            let type;
+            if ((source.name === "Stantec" || source.name === "ARCAN" || source.name === "Lindbäcks Group") && 
+                (target.activity === "Modular Manufacturer" || target.activity === "General Contractor" || target.activity === "Modular Developer")) {
+              type = "Core to Manufacturer";
+            } else if ((source.activity === "Modular Manufacturer" || source.activity === "General Contractor" || target.activity === "Modular Developer") && 
+                       (target.activity === "Steel Fabricator" || target.activity === "Wood Supplier")) {
+              type = "Manufacturer to Supplier";
+            } else if ((source.activity === "Steel Fabricator" || source.activity === "Wood Supplier") && 
+                       (target.activity === "Logistics" || target.activity === "Electrical" || target.activity === "Transport")) {
+              type = "Supplier to Local Partner";
+            } else {
+              type = "Other";
+            }
+            arcs.push({
+              startLat: parseFloat(source.lat),
+              startLng: parseFloat(source.lng),
+              endLat: parseFloat(target.lat),
+              endLng: parseFloat(target.lng),
+              type: type
+            });
+          }
+        });
+      });
+
+      // Initialize the globe
+      const globe = Globe()
+        .globeImageUrl('https://cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg')
+        .pointsData(points)
+        .pointLat(d => parseFloat(d.lat))
+        .pointLng(d => parseFloat(d.lng))
+        .pointLabel(d => `${d.name}\n\n• Address: ${d.address}\n• Activity: ${d.activity}\n• Status: ${d.status}`)
+        .pointColor(() => '#bbb')
+        .pointAltitude(0)
+        .pointRadius(0.2)
+        .arcsData(arcs)
+        .arcColor(d => arcTypes[d.type])
+        .arcLabel(d => d.type)
+        (document.getElementById('globeViz'));
+
+      // Always show the name as a label
+      globe.labelsData(points)
+        .labelLat(d => parseFloat(d.lat))
+        .labelLng(d => parseFloat(d.lng))
+        .labelText(d => d.name)
+        .labelSize(0.3)
+        .labelDotRadius(0.2)
+        .labelColor(() => 'white');
+
+      // Optional: Info panel for more details
+      function showPlayerInfo(player) {
+        document.getElementById('playerName').innerText = player.name;
+        document.getElementById('address').innerText = player.address;
+        document.getElementById('activity').innerText = player.activity;
+        document.getElementById('status').innerText = player.status;
+        const worksWithList = document.getElementById('worksWithList');
+        worksWithList.innerHTML = '';
+        (partners[player.name] || []).forEach(name => {
+          const li = document.createElement('li');
+          li.textContent = name;
+          worksWithList.appendChild(li);
+        });
+        document.getElementById('infoPanel').style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>
