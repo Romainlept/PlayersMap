@@ -18,11 +18,11 @@
     // Initialize a new graph
     const graph = new graphology.Graph();
 
-    // Add nodes
+    // Add nodes with coordinates close to (0,0)
     graph.addNode("Toronto1", { label: "Toronto 1", x: 0, y: 0, size: 10, color: "#1f77b4" });
-    graph.addNode("Toronto2", { label: "Toronto 2", x: 0.5, y: 0.5, size: 10, color: "#1f77b4" });
-    graph.addNode("Vancouver", { label: "Vancouver", x: 3, y: 1, size: 10, color: "#2ca02c" });
-    graph.addNode("NewYork", { label: "New York", x: 2, y: -1, size: 10, color: "#ff7f0e" });
+    graph.addNode("Toronto2", { label: "Toronto 2", x: 2, y: 0, size: 10, color: "#1f77b4" });
+    graph.addNode("Vancouver", { label: "Vancouver", x: 0, y: 2, size: 10, color: "#2ca02c" });
+    graph.addNode("NewYork", { label: "New York", x: 2, y: 2, size: 10, color: "#ff7f0e" });
 
     // Link all nodes to each other
     const nodes = graph.nodes();
