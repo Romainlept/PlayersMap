@@ -46,6 +46,14 @@
       "Other": "#9467bd"                      // Purple
     };
 
+    // Activity mapping for flexible arc type logic
+    const activityMapping = {
+      "Core": ["Design & Engineering", "Factory-Built Housing", "Modular Builder"],
+      "Manufacturer": ["Modular Manufacturer", "General Contractor", "Modular Developer"],
+      "Supplier": ["Steel Fabricator", "Wood Supplier"],
+      "LocalPartner": ["Logistics", "Electrical", "Transport"]
+    };
+
     // Helper function to fetch and parse CSV
     function fetchCSV(url, callback) {
       Papa.parse(url, {
@@ -77,14 +85,14 @@
           const target = points.find(p => p.name === targetName);
           if (target) {
             let type;
-            if ((source.name === "Stantec" || source.name === "ARCAN" || source.name === "Lindbäcks Group") && 
-                (target.activity === "Modular Manufacturer" || target.activity === "General Contractor" || target.activity === "Modular Developer")) {
+            if (activityMapping.Core.includes(source.activity)) {
               type = "Core to Manufacturer";
-            } else if ((source.activity === "Modular Manufacturer" || source.activity === "General Contractor" || target.activity === "Modular Developer") && 
-                       (target.activity === "Steel Fabricator" || target.activity === "Wood Supplier")) {
+            } else if (activityMapping.Manufacturer.includes(source.activity)) {
               type = "Manufacturer to Supplier";
-            } else if ((source.activity === "Steel Fabricator" || source.activity === "Wood Supplier") && 
-                       (target.activity === "Logistics" || target.activity === "Electrical" || target.activity === "Transport")) {
+            } else if (
+              activityMapping.Supplier.includes(source.activity) &&
+              activityMapping.LocalPartner.includes(target.activity)
+            ) {
               type = "Supplier to Local Partner";
             } else {
               type = "Other";
