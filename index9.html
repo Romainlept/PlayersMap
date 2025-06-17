@@ -11,7 +11,6 @@
   </style>
   <script src="https://cdn.jsdelivr.net/npm/sigma@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/graphology@0.25"></script>
-  <script src="https://cdn.jsdelivr.net/npm/graphology-layout-force@0.2"></script>
 </head>
 <body>
   <div id="sigma-container"></div>
@@ -19,18 +18,13 @@
     // Initialize a new graph
     const graph = new graphology.Graph();
 
-    // Add nodes (with custom x,y for layout; in real use, you might use lat/lng with a projection)
-    // For demo, use arbitrary coordinates to spread out the nodes
-    // Toronto 1: Downtown (arbitrary x=0, y=0)
-    // Toronto 2: Scarborough (arbitrary x=0.5, y=0.5)
-    // Vancouver: (arbitrary x=3, y=1)
-    // New York: (arbitrary x=2, y=-1)
+    // Add nodes
     graph.addNode("Toronto1", { label: "Toronto 1", x: 0, y: 0, size: 10, color: "#1f77b4" });
     graph.addNode("Toronto2", { label: "Toronto 2", x: 0.5, y: 0.5, size: 10, color: "#1f77b4" });
     graph.addNode("Vancouver", { label: "Vancouver", x: 3, y: 1, size: 10, color: "#2ca02c" });
     graph.addNode("NewYork", { label: "New York", x: 2, y: -1, size: 10, color: "#ff7f0e" });
 
-    // Link all nodes to each other (fully connected)
+    // Link all nodes to each other
     const nodes = graph.nodes();
     for (let i = 0; i < nodes.length; i++) {
       for (let j = i + 1; j < nodes.length; j++) {
@@ -41,11 +35,6 @@
     // Render the graph
     const container = document.getElementById("sigma-container");
     const renderer = new sigma(graph, container);
-
-    // Optional: Use a force layout to spread out the nodes (not necessary with coordinates, but good for dynamic layouts)
-    // const layout = new graphologyLibrary.layout.force(graph);
-    // layout.start();
-    // (Note: The above is commented out because we already set x,y, but you can use it for dynamic layouts)
   </script>
 </body>
 </html>
