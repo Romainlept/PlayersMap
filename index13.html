@@ -301,34 +301,52 @@
           `;
         });
 
-        function updateMapVisibility() {
-          const selectedParents = new Set(
-            Array.from(filterPanel.querySelectorAll('input[type=checkbox]:checked'))
-              .map(cb => cb.value)
-          );
+function updateMapVisibility() {
+  const selectedParents = new Set(
+    Array.from(filterPanel.querySelectorAll('input[type=checkbox]:checked'))
+      .map(cb => cb.value)
+  );
 
-          const filteredPoints = allPointsGeoJSON.features.filter(f =>
-            selectedParents.has(f.properties.Parent)
-          );
+  // Find all companies to show (children + their parent nodes)
+  const visibleNames = new Set();
 
-          const filteredArcs = allArcsGeoJSON.features.filter(f =>
-            selectedParents.has(pointsData.find(p => p.Name === f.properties.Source)?.Parent || 'Unassigned') &&
-            selectedParents.has(pointsData.find(p => p.Name === f.properties.Target)?.Parent || 'Unassigned')
-          );
+  pointsData.forEach(p => {
+    const parent = p.Parent || 'Unassigned';
+    if (selectedParents.has(parent)) {
+      visibleNames.add(p.Name); // child
+      visibleNames.add(p.Parent); // ensure parent also added
+    }
+  });
 
-          map.getSource('players').setData({
-            type: 'FeatureCollection',
-            features: filteredPoints
-          });
+  // Also include any node whose Name IS a selected parent
+  pointsData.forEach(p => {
+    if (selectedParents.has(p.Name)) {
+      visibleNames.add(p.Name);
+    }
+  });
 
-          if (map.getSource('arcs')) {
-            map.getSource('arcs').setData({
-              type: 'FeatureCollection',
-              features: filteredArcs
-            });
-          }
-        }
+  // Filter points
+  const filteredPoints = allPointsGeoJSON.features.filter(f =>
+    visibleNames.has(f.properties.Name)
+  );
 
+  // Filter arcs if both source and target are visible
+  const filteredArcs = allArcsGeoJSON.features.filter(f =>
+    visibleNames.has(f.properties.Source) && visibleNames.has(f.properties.Target)
+  );
+
+  map.getSource('players').setData({
+    type: 'FeatureCollection',
+    features: filteredPoints
+  });
+
+  if (map.getSource('arcs')) {
+    map.getSource('arcs').setData({
+      type: 'FeatureCollection',
+      features: filteredArcs
+    });
+  }
+}
         filterPanel.querySelectorAll('input[type=checkbox]').forEach(cb => {
           cb.addEventListener('change', updateMapVisibility);
         });
