@@ -67,11 +67,14 @@
       header: true,
       complete: function(results) {
         pointsData = results.data
-          .filter(d => d.name && d.lat && d.lng)
+          .filter(d => d.Name && d.Lat && d.Lng)
           .map(d => ({
-            ...d,
-            lat: parseFloatOrUndefined(d.lat),
-            lng: parseFloatOrUndefined(d.lng)
+            name: d.Name,
+            lat: parseFloatOrUndefined(d.Lat),
+            lng: parseFloatOrUndefined(d.Lng),
+            address: d.Address,
+            activity: d.Activity,
+            status: d.Status
           }))
           .filter(d => d.lat !== undefined && d.lng !== undefined);
         console.log("Parsed points data:", pointsData);
