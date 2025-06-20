@@ -24,40 +24,12 @@
       display: none;
       z-index: 10;
     }
-    .network-legend {
-      position: absolute;
-      left: 10px;
-      bottom: 10px;
-      background: rgba(255, 255, 255, 0.95);
-      padding: 10px;
-      border-radius: 3px;
-      font: 12px/16px sans-serif;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-      z-index: 10;
-      max-height: 300px;
-      overflow-y: auto;
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      margin: 3px 0;
-    }
-    .legend-color {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      margin-right: 6px;
-      border: 1px solid #ccc;
-    }
+
   </style>
 </head>
 <body>
   <div id="map"></div>
   <div class="map-overlay" id="info"></div>
-  <div class="network-legend" id="legend">
-    <strong>Networks:</strong>
-    <div id="legend-content"></div>
-  </div>
 
   <script>
     // Replace with your Mapbox access token
@@ -192,19 +164,6 @@
 
       console.log("Network colors:", networkColors);
       console.log("Network sizes:", networkSizes);
-
-      // Create legend
-      const legendContent = document.getElementById('legend-content');
-      legendContent.innerHTML = '';
-      for (let i = 0; i < networkId; i++) {
-        const legendItem = document.createElement('div');
-        legendItem.className = 'legend-item';
-        legendItem.innerHTML = `
-          <div class="legend-color" style="background-color: ${networkColors[i]}"></div>
-          <span>Network ${i + 1} (${networkSizes[i]} nodes)</span>
-        `;
-        legendContent.appendChild(legendItem);
-      }
 
       // Convert points to GeoJSON with network information
       const pointsGeoJSON = {
@@ -362,7 +321,6 @@
             <strong>Address:</strong> ${feature.properties.address || 'N/A'}<br>
             <strong>Activity:</strong> ${feature.properties.activity || 'N/A'}<br>
             <strong>Status:</strong> ${feature.properties.status || 'N/A'}<br>
-            <strong>Network:</strong> ${networkNum + 1} (${networkSizes[networkNum]} nodes)<br>
             <strong>Partners:</strong><br>
             ${allPartners.length ? allPartners.join('<br>') : 'None'}
           `;
