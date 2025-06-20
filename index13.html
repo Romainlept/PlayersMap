@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mapbox Modular Network with Parent Filtering</title>
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+  <style>
+    body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    .map-overlay {
+      position: absolute;
+      background: #fff;
+      padding: 10px;
+      border-radius: 3px;
+      font: 12px/20px sans-serif;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      z-index: 10;
+    }
+    #info {
+      right: 10px;
+      top: 10px;
+      max-height: 400px;
+      overflow-y: auto;
+      display: none;
+    }
+    #filter-panel {
+      left: 10px;
+      top: 10px;
+      width: 200px;
+      max-height: 500px;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="map-overlay" id="info"></div>
+  <div class="map-overlay" id="filter-panel"></div>
+
+  <script>
+    mapboxgl.accessToken = 'pk.eyJ1Ijoicm9tYWlubGVwcmV0cmUiLCJhIjoiY21jMHhvc3VkMDdpMjJscHNqZW1weTc4cyJ9.3SrQFYmnFCs2M7gTO75BBA';
+    const pointsUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQaJd0h7-isjNPXFKJfzEMKJZ7bOPsqrfESDs7hj9skKws-SXMe0Z5alZXeJJHf8H18lkNwlAd6nwzL/pub?gid=0&single=true&output=csv';
+
+    let pointsData = [];
+    let allPointsGeoJSON, allArcsGeoJSON, map;
+    const infoOverlay = document.getElementById('info');
+
+    function parseFloatOrUndefined(str) {
+      const num = parseFloat(str);
+      return isNaN(num) ? undefined : num;
+    }
+
+    function randomColor() {
+      const colors = [
+        '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+        '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+        '#F8C471', '#82E0AA', '#F1948A', '#AED6F1', '#D2B4DE',
+        '#F9E79F', '#A3E4D7', '#F5B7B1', '#D5A6BD', '#A9DFBF',
+        '#FAD7A0', '#D7BDE2', '#AED6F1', '#F8D7DA', '#D1F2EB'
+      ];
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+
+    Papa.parse(pointsUrl, {
+      download: true,
+      header: true,
+      complete: function(results) {
+        pointsData = results.data
+          .filter(d => d.Name && d.Lat && d.Lng)
+          .map(d => ({
+            Name: d.Name,
+            Parent: d.Parent,
+            Lat: parseFloatOrUndefined(d.Lat),
+            Lng: parseFloatOrUndefined(d.Lng),
+            Address: d.Address,
+            Activity: d.Activity,
+            Status: d.Status,
+            ContactName: d["Contact Name"],
+            ContactRole: d["Contact Role"],
+            ContactPhone: d["Contact Phone"]
+          }))
+          .filter(d => d.Lat !== undefined && d.Lng !== undefined);
+        buildMap();
+      }
+    });
+
+    function buildMap() {
+      const graph = {};
+      const nameToId = {};
+
+      pointsData.forEach((p, i) => {
+        nameToId[p.Name] = i;
+        graph[i] = [];
+      });
+
+      const partnersData = pointsData
+        .filter(p => p.Parent && nameToId[p.Parent] !== undefined)
+        .map(p => ({
+          Source: p.Name,
+          Target: p.Parent
+        }));
+
+      partnersData.forEach(p => {
+        const sourceId = nameToId[p.Source];
+        const targetId = nameToId[p.Target];
+        if (sourceId !== undefined && targetId !== undefined) {
+          graph[sourceId].push(targetId);
+          graph[targetId].push(sourceId);
+        }
+      });
+
+      const visited = new Set();
+      const nodeToNetwork = {};
+      let networkId = 0;
+
+      pointsData.forEach((p, i) => {
+        if (!visited.has(i)) {
+          const queue = [i];
+          visited.add(i);
+
+          while (queue.length > 0) {
+            const current = queue.shift();
+            nodeToNetwork[current] = networkId;
+
+            for (const neighbor of graph[current]) {
+              if (!visited.has(neighbor)) {
+                visited.add(neighbor);
+                queue.push(neighbor);
+              }
+            }
+          }
+          networkId++;
+        }
+      });
+
+      pointsData.forEach((p, i) => {
+        p.network = nodeToNetwork[i];
+      });
+
+      const networkColors = {};
+      const usedColors = new Set();
+
+      for (let i = 0; i < networkId; i++) {
+        let color;
+        do {
+          color = randomColor();
+        } while (usedColors.has(color) && usedColors.size < 25);
+        networkColors[i] = color;
+        usedColors.add(color);
+      }
+
+      const pointsGeoJSON = {
+        type: 'FeatureCollection',
+        features: pointsData.map(d => ({
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [d.Lng, d.Lat]
+          },
+          properties: {
+            Name: d.Name,
+            Address: d.Address,
+            Activity: d.Activity,
+            Status: d.Status,
+            Parent: d.Parent || 'Unassigned',
+            ContactName: d.ContactName,
+            ContactRole: d.ContactRole,
+            ContactPhone: d.ContactPhone,
+            network: d.network
+          }
+        }))
+      };
+      allPointsGeoJSON = pointsGeoJSON;
+
+      const arcsGeoJSON = {
+        type: 'FeatureCollection',
+        features: partnersData.map(p => {
+          const source = pointsData.find(d => d.Name === p.Source);
+          const target = pointsData.find(d => d.Name === p.Target);
+          if (source && target) {
+            return {
+              type: 'Feature',
+              geometry: {
+                type: 'LineString',
+                coordinates: [
+                  [source.Lng, source.Lat],
+                  [target.Lng, target.Lat]
+                ]
+              },
+              properties: {
+                network: source.network,
+                Source: p.Source,
+                Target: p.Target
+              }
+            };
+          }
+          return null;
+        }).filter(Boolean)
+      };
+      allArcsGeoJSON = arcsGeoJSON;
+
+      map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/mapbox/light-v11',
+        center: [-98, 40],
+        zoom: 3
+      });
+
+      map.on('load', () => {
+        map.addSource('players', { type: 'geojson', data: allPointsGeoJSON });
+        map.addLayer({
+          id: 'players',
+          type: 'circle',
+          source: 'players',
+          paint: {
+            'circle-radius': 6,
+            'circle-color': [
+              'case',
+              ...Object.entries(networkColors).flatMap(([id, color]) => [
+                ['==', ['get', 'network'], parseInt(id)], color
+              ]),
+              '#888'
+            ],
+            'circle-stroke-width': 2,
+            'circle-stroke-color': '#fff'
+          }
+        });
+
+        map.addLayer({
+          id: 'player-labels',
+          type: 'symbol',
+          source: 'players',
+          layout: {
+            'text-field': ['get', 'Name'],
+            'text-size': 12,
+            'text-offset': [0, 1.5],
+            'text-anchor': 'top'
+          },
+          paint: {
+            'text-color': '#000',
+            'text-halo-color': '#fff',
+            'text-halo-width': 1
+          }
+        });
+
+        if (allArcsGeoJSON.features.length > 0) {
+          map.addSource('arcs', { type: 'geojson', data: allArcsGeoJSON });
+          map.addLayer({
+            id: 'arcs',
+            type: 'line',
+            source: 'arcs',
+            paint: {
+              'line-color': [
+                'case',
+                ...Object.entries(networkColors).flatMap(([id, color]) => [
+                  ['==', ['get', 'network'], parseInt(id)], color
+                ]),
+                '#888'
+              ],
+              'line-width': 3,
+              'line-opacity': 0.8
+            }
+          });
+        }
+
+        map.on('mouseenter', 'players', (e) => {
+          map.getCanvas().style.cursor = 'pointer';
+          const props = e.features[0].properties;
+          let info = `
+            <strong>${props.Name}</strong><br>
+            <strong>Parent:</strong> ${props.Parent}<br>
+            <strong>Address:</strong> ${props.Address || 'N/A'}<br>
+            <strong>Activity:</strong> ${props.Activity || 'N/A'}<br>
+            <strong>Status:</strong> ${props.Status || 'N/A'}<br>
+            <strong>Contact:</strong> ${props.ContactName || 'N/A'} (${props.ContactRole || 'N/A'})<br>
+            <strong>Phone:</strong> ${props.ContactPhone || 'N/A'}<br>
+          `;
+          infoOverlay.innerHTML = info;
+          infoOverlay.style.display = 'block';
+        });
+
+        map.on('mouseleave', 'players', () => {
+          map.getCanvas().style.cursor = '';
+          infoOverlay.style.display = 'none';
+        });
+
+        // ---- Filter UI ----
+        const uniqueParents = [...new Set(pointsData.map(d => d.Parent || 'Unassigned'))].sort();
+        const filterPanel = document.getElementById('filter-panel');
+        filterPanel.innerHTML = `<strong>Filter by Parent:</strong><br>`;
+        uniqueParents.forEach(parent => {
+          const safeId = parent.replace(/\W+/g, '_');
+          filterPanel.innerHTML += `
+            <label>
+              <input type="checkbox" value="${parent}" id="cb_${safeId}" checked>
+              ${parent}
+            </label><br>
+          `;
+        });
+
+        function updateMapVisibility() {
+          const selectedParents = new Set(
+            Array.from(filterPanel.querySelectorAll('input[type=checkbox]:checked'))
+              .map(cb => cb.value)
+          );
+
+          const filteredPoints = allPointsGeoJSON.features.filter(f =>
+            selectedParents.has(f.properties.Parent)
+          );
+
+          const filteredArcs = allArcsGeoJSON.features.filter(f =>
+            selectedParents.has(pointsData.find(p => p.Name === f.properties.Source)?.Parent || 'Unassigned') &&
+            selectedParents.has(pointsData.find(p => p.Name === f.properties.Target)?.Parent || 'Unassigned')
+          );
+
+          map.getSource('players').setData({
+            type: 'FeatureCollection',
+            features: filteredPoints
+          });
+
+          if (map.getSource('arcs')) {
+            map.getSource('arcs').setData({
+              type: 'FeatureCollection',
+              features: filteredArcs
+            });
+          }
+        }
+
+        filterPanel.querySelectorAll('input[type=checkbox]').forEach(cb => {
+          cb.addEventListener('change', updateMapVisibility);
+        });
+      });
+    }
+  </script>
+</body>
+</html>
