@@ -24,7 +24,6 @@
       display: none;
       z-index: 10;
     }
-
   </style>
 </head>
 <body>
@@ -69,14 +68,14 @@
         pointsData = results.data
           .filter(d => d.Name && d.Lat && d.Lng)
           .map(d => ({
-            name: d.Name,
-            lat: parseFloatOrUndefined(d.Lat),
-            lng: parseFloatOrUndefined(d.Lng),
-            address: d.Address,
-            activity: d.Activity,
-            status: d.Status
+            Name: d.Name,
+            Lat: parseFloatOrUndefined(d.Lat),
+            Lng: parseFloatOrUndefined(d.Lng),
+            Address: d.Address,
+            Activity: d.Activity,
+            Status: d.Status
           }))
-          .filter(d => d.lat !== undefined && d.lng !== undefined);
+          .filter(d => d.Lat !== undefined && d.Lng !== undefined);
         console.log("Parsed points data:", pointsData);
 
         // Load partners data after points are loaded
@@ -85,7 +84,11 @@
           header: true,
           complete: function(results) {
             partnersData = results.data
-              .filter(d => d.source && d.target);
+              .filter(d => d.Source && d.Target)
+              .map(d => ({
+                Source: d.Source,
+                Target: d.Target
+              }));
             console.log("Parsed partners data:", partnersData);
 
             // Both datasets are loaded, now build the map
@@ -102,14 +105,14 @@
       
       // Create mapping from names to indices
       pointsData.forEach((p, i) => {
-        nameToId[p.name] = i;
+        nameToId[p.Name] = i;
         graph[i] = [];
       });
 
       // Build adjacency list
       partnersData.forEach(p => {
-        const sourceId = nameToId[p.source];
-        const targetId = nameToId[p.target];
+        const sourceId = nameToId[p.Source];
+        const targetId = nameToId[p.Target];
         if (sourceId !== undefined && targetId !== undefined) {
           graph[sourceId].push(targetId);
           graph[targetId].push(sourceId);
@@ -175,13 +178,13 @@
           type: 'Feature',
           geometry: {
             type: 'Point',
-            coordinates: [d.lng, d.lat]
+            coordinates: [d.Lng, d.Lat]
           },
           properties: {
-            name: d.name,
-            address: d.address,
-            activity: d.activity,
-            status: d.status,
+            Name: d.Name,
+            Address: d.Address,
+            Activity: d.Activity,
+            Status: d.Status,
             network: d.network
           }
         }))
@@ -192,16 +195,16 @@
         type: 'FeatureCollection',
         features: partnersData
           .map(partner => {
-            const source = pointsData.find(p => p.name === partner.source);
-            const target = pointsData.find(p => p.name === partner.target);
+            const source = pointsData.find(p => p.Name === partner.Source);
+            const target = pointsData.find(p => p.Name === partner.Target);
             if (source && target) {
               return {
                 type: 'Feature',
                 geometry: {
                   type: 'LineString',
                   coordinates: [
-                    [source.lng, source.lat],
-                    [target.lng, target.lat]
+                    [source.Lng, source.Lat],
+                    [target.Lng, target.Lat]
                   ]
                 },
                 properties: {
@@ -248,13 +251,13 @@
           }
         });
 
-        // Add labels (player names)
+        // Add labels (player Names)
         map.addLayer({
           id: 'player-labels',
           type: 'symbol',
           source: 'players',
           layout: {
-            'text-field': ['get', 'name'],
+            'text-field': ['get', 'Name'],
             'text-size': 12,
             'text-offset': [0, 1.5],
             'text-anchor': 'top'
@@ -295,23 +298,23 @@
         map.on('mouseenter', 'players', (e) => {
           map.getCanvas().style.cursor = 'pointer';
           const feature = e.features[0];
-          const playerName = feature.properties.name;
+          const playerName = feature.properties.Name;
           const networkNum = feature.properties.network;
 
           // Find all partners of this player (both directions)
           const outgoingPartners = partnersData
-            .filter(p => p.source === playerName)
+            .filter(p => p.Source === playerName)
             .map(p => {
-              const partner = pointsData.find(pp => pp.name === p.target);
-              return partner ? `${partner.name} (${partner.activity})` : null;
+              const partner = pointsData.find(pp => pp.Name === p.Target);
+              return partner ? `${partner.Name} (${partner.Activity})` : null;
             })
             .filter(Boolean);
 
           const incomingPartners = partnersData
-            .filter(p => p.target === playerName)
+            .filter(p => p.Target === playerName)
             .map(p => {
-              const partner = pointsData.find(pp => pp.name === p.source);
-              return partner ? `${partner.name} (${partner.activity})` : null;
+              const partner = pointsData.find(pp => pp.Name === p.Source);
+              return partner ? `${partner.Name} (${partner.Activity})` : null;
             })
             .filter(Boolean);
 
@@ -321,9 +324,9 @@
           // Build the info content
           let info = `
             <strong>${playerName}</strong><br>
-            <strong>Address:</strong> ${feature.properties.address || 'N/A'}<br>
-            <strong>Activity:</strong> ${feature.properties.activity || 'N/A'}<br>
-            <strong>Status:</strong> ${feature.properties.status || 'N/A'}<br>
+            <strong>Address:</strong> ${feature.properties.Address || 'N/A'}<br>
+            <strong>Activity:</strong> ${feature.properties.Activity || 'N/A'}<br>
+            <strong>Status:</strong> ${feature.properties.Status || 'N/A'}<br>
             <strong>Partners:</strong><br>
             ${allPartners.length ? allPartners.join('<br>') : 'None'}
           `;
