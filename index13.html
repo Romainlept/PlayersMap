@@ -2,7 +2,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Mapbox Modular Network with Parent Filtering</title>
+  <title>Modular Network Map</title>
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.12.0/mapbox-gl.js"></script>
@@ -29,9 +29,13 @@
     #filter-panel {
       left: 10px;
       top: 10px;
-      width: 200px;
+      width: 220px;
       max-height: 500px;
       overflow-y: auto;
+    }
+    #filter-panel button {
+      margin-bottom: 10px;
+      width: 100%;
     }
   </style>
 </head>
@@ -46,6 +50,7 @@
 
     let pointsData = [];
     let allPointsGeoJSON, allArcsGeoJSON, map;
+
     const infoOverlay = document.getElementById('info');
 
     function parseFloatOrUndefined(str) {
@@ -90,7 +95,6 @@
     function buildMap() {
       const graph = {};
       const nameToId = {};
-
       pointsData.forEach((p, i) => {
         nameToId[p.Name] = i;
         graph[i] = [];
@@ -98,10 +102,7 @@
 
       const partnersData = pointsData
         .filter(p => p.Parent && nameToId[p.Parent] !== undefined)
-        .map(p => ({
-          Source: p.Name,
-          Target: p.Parent
-        }));
+        .map(p => ({ Source: p.Name, Target: p.Parent }));
 
       partnersData.forEach(p => {
         const sourceId = nameToId[p.Source];
@@ -115,16 +116,13 @@
       const visited = new Set();
       const nodeToNetwork = {};
       let networkId = 0;
-
       pointsData.forEach((p, i) => {
         if (!visited.has(i)) {
           const queue = [i];
           visited.add(i);
-
           while (queue.length > 0) {
             const current = queue.shift();
             nodeToNetwork[current] = networkId;
-
             for (const neighbor of graph[current]) {
               if (!visited.has(neighbor)) {
                 visited.add(neighbor);
@@ -135,19 +133,14 @@
           networkId++;
         }
       });
-
-      pointsData.forEach((p, i) => {
-        p.network = nodeToNetwork[i];
-      });
+      pointsData.forEach((p, i) => { p.network = nodeToNetwork[i]; });
 
       const networkColors = {};
       const usedColors = new Set();
-
       for (let i = 0; i < networkId; i++) {
         let color;
-        do {
-          color = randomColor();
-        } while (usedColors.has(color) && usedColors.size < 25);
+        do { color = randomColor(); }
+        while (usedColors.has(color) && usedColors.size < 25);
         networkColors[i] = color;
         usedColors.add(color);
       }
@@ -162,10 +155,10 @@
           },
           properties: {
             Name: d.Name,
+            Parent: d.Parent || 'Unassigned',
             Address: d.Address,
             Activity: d.Activity,
             Status: d.Status,
-            Parent: d.Parent || 'Unassigned',
             ContactName: d.ContactName,
             ContactRole: d.ContactRole,
             ContactPhone: d.ContactPhone,
@@ -268,17 +261,16 @@
 
         map.on('mouseenter', 'players', (e) => {
           map.getCanvas().style.cursor = 'pointer';
-          const props = e.features[0].properties;
-          let info = `
-            <strong>${props.Name}</strong><br>
-            <strong>Parent:</strong> ${props.Parent}<br>
-            <strong>Address:</strong> ${props.Address || 'N/A'}<br>
-            <strong>Activity:</strong> ${props.Activity || 'N/A'}<br>
-            <strong>Status:</strong> ${props.Status || 'N/A'}<br>
-            <strong>Contact:</strong> ${props.ContactName || 'N/A'} (${props.ContactRole || 'N/A'})<br>
-            <strong>Phone:</strong> ${props.ContactPhone || 'N/A'}<br>
+          const p = e.features[0].properties;
+          infoOverlay.innerHTML = `
+            <strong>${p.Name}</strong><br>
+            <strong>Parent:</strong> ${p.Parent}<br>
+            <strong>Address:</strong> ${p.Address || 'N/A'}<br>
+            <strong>Activity:</strong> ${p.Activity || 'N/A'}<br>
+            <strong>Status:</strong> ${p.Status || 'N/A'}<br>
+            <strong>Contact:</strong> ${p.ContactName || 'N/A'} (${p.ContactRole || 'N/A'})<br>
+            <strong>Phone:</strong> ${p.ContactPhone || 'N/A'}
           `;
-          infoOverlay.innerHTML = info;
           infoOverlay.style.display = 'block';
         });
 
@@ -287,10 +279,15 @@
           infoOverlay.style.display = 'none';
         });
 
-        // ---- Filter UI ----
+        // ---- FILTER PANEL ----
         const uniqueParents = [...new Set(pointsData.map(d => d.Parent || 'Unassigned'))].sort();
         const filterPanel = document.getElementById('filter-panel');
-        filterPanel.innerHTML = `<strong>Filter by Parent:</strong><br>`;
+
+        filterPanel.innerHTML = `
+          <button id="toggleAll">Deselect All</button>
+          <strong>Filter by Parent:</strong><br>
+        `;
+
         uniqueParents.forEach(parent => {
           const safeId = parent.replace(/\W+/g, '_');
           filterPanel.innerHTML += `
@@ -301,54 +298,53 @@
           `;
         });
 
-function updateMapVisibility() {
-  const selectedParents = new Set(
-    Array.from(filterPanel.querySelectorAll('input[type=checkbox]:checked'))
-      .map(cb => cb.value)
-  );
+        function updateMapVisibility() {
+          const selectedParents = new Set(
+            Array.from(filterPanel.querySelectorAll('input[type=checkbox]:checked'))
+              .map(cb => cb.value)
+          );
 
-  // Find all companies to show (children + their parent nodes)
-  const visibleNames = new Set();
+          const visibleNames = new Set();
+          pointsData.forEach(p => {
+            const parent = p.Parent || 'Unassigned';
+            if (selectedParents.has(parent)) {
+              visibleNames.add(p.Name);
+              visibleNames.add(p.Parent);
+            }
+          });
+          pointsData.forEach(p => {
+            if (selectedParents.has(p.Name)) {
+              visibleNames.add(p.Name);
+            }
+          });
 
-  pointsData.forEach(p => {
-    const parent = p.Parent || 'Unassigned';
-    if (selectedParents.has(parent)) {
-      visibleNames.add(p.Name); // child
-      visibleNames.add(p.Parent); // ensure parent also added
-    }
-  });
+          const filteredPoints = allPointsGeoJSON.features.filter(f =>
+            visibleNames.has(f.properties.Name)
+          );
+          const filteredArcs = allArcsGeoJSON.features.filter(f =>
+            visibleNames.has(f.properties.Source) && visibleNames.has(f.properties.Target)
+          );
 
-  // Also include any node whose Name IS a selected parent
-  pointsData.forEach(p => {
-    if (selectedParents.has(p.Name)) {
-      visibleNames.add(p.Name);
-    }
-  });
+          map.getSource('players').setData({
+            type: 'FeatureCollection',
+            features: filteredPoints
+          });
+          map.getSource('arcs').setData({
+            type: 'FeatureCollection',
+            features: filteredArcs
+          });
+        }
 
-  // Filter points
-  const filteredPoints = allPointsGeoJSON.features.filter(f =>
-    visibleNames.has(f.properties.Name)
-  );
-
-  // Filter arcs if both source and target are visible
-  const filteredArcs = allArcsGeoJSON.features.filter(f =>
-    visibleNames.has(f.properties.Source) && visibleNames.has(f.properties.Target)
-  );
-
-  map.getSource('players').setData({
-    type: 'FeatureCollection',
-    features: filteredPoints
-  });
-
-  if (map.getSource('arcs')) {
-    map.getSource('arcs').setData({
-      type: 'FeatureCollection',
-      features: filteredArcs
-    });
-  }
-}
         filterPanel.querySelectorAll('input[type=checkbox]').forEach(cb => {
           cb.addEventListener('change', updateMapVisibility);
+        });
+
+        document.getElementById('toggleAll').addEventListener('click', function () {
+          const allCheckboxes = filterPanel.querySelectorAll('input[type=checkbox]');
+          const allChecked = Array.from(allCheckboxes).every(cb => cb.checked);
+          allCheckboxes.forEach(cb => cb.checked = !allChecked);
+          this.textContent = allChecked ? "Select All" : "Deselect All";
+          updateMapVisibility();
         });
       });
     }
